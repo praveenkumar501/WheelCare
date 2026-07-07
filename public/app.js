@@ -33,6 +33,7 @@
     role: localStorage.getItem('wc_role') || null,
     user: JSON.parse(localStorage.getItem('wc_user') || 'null'),
     loginRole: 'client',
+    loginMethod: 'password',
     view: 'landing',
     clientTab: 'home',
     data: null, // role-specific dashboard payload
@@ -202,13 +203,16 @@
 
   // ================= LOGIN =================
   const ROLE_HINTS = {
-    client: 'Demo: praveen / praveen123',
-    customer: 'Demo: anita / anita123',
-    superadmin: 'Demo: admin / admin123',
+    client: 'Demo phone: 9876543210 · password: praveen123',
+    customer: 'Demo phone: 9812345671 · password: anita123',
+    superadmin: 'Demo phone: 9999999999 · password: admin123',
   };
   const ROLE_LABELS = { client: 'Business', customer: 'Customer', superadmin: 'Super Admin' };
 
   function renderLogin(errorMsg) {
+    if (!state.loginMethod) state.loginMethod = 'password';
+    const isOtp = state.loginMethod === 'otp';
+
     $app.innerHTML =
       '<div class="auth-screen premium-bg">' +
         '<button class="auth-back-link" id="auth-back-btn">← Back</button>' +
@@ -222,12 +226,17 @@
                 '<button class="role-tab' + (state.loginRole === r ? ' active' : '') + '" data-role="' + r + '">' + ROLE_LABELS[r] + '</button>'
               ).join('') +
             '</div>' +
+            '<div class="method-tabs" id="method-tabs">' +
+              '<button class="method-tab' + (!isOtp ? ' active' : '') + '" data-method="password">Password</button>' +
+              '<button class="method-tab' + (isOtp ? ' active' : '') + '" data-method="otp">OTP</button>' +
+            '</div>' +
             (errorMsg ? '<div class="auth-error">' + esc(errorMsg) + '</div>' : '') +
-            '<form id="login-form">' +
-              '<div class="field"><label>Username</label><input id="login-username" autocomplete="username" required /></div>' +
-              pwdFieldHtml('Password', 'password', { id: 'login-password', required: true, autocomplete: 'current-password' }) +
-              '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
-            '</form>' +
+            (isOtp ? otpFormHtml() :
+              '<form id="login-form">' +
+                '<div class="field"><label>Phone</label><input id="login-phone" required pattern="[0-9]{10}" placeholder="10-digit number" autocomplete="tel" /></div>' +
+                pwdFieldHtml('Password', 'password', { id: 'login-password', required: true, autocomplete: 'current-password' }) +
+                '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
+              '</form>') +
             '<div class="auth-links">' +
               '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
               (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '') +
@@ -249,23 +258,85 @@
       renderLogin();
     });
 
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const username = document.getElementById('login-username').value.trim();
-      const password = document.getElementById('login-password').value;
-      try {
-        const result = await api('/login', { method: 'POST', body: JSON.stringify({ role: state.loginRole, username, password }) });
-        saveSession(result.token, result.role, result.user);
-        toast('Welcome back, ' + (result.user.name || result.user.businessName || result.user.username) + '!', 'success');
-        render();
-      } catch (err) {
-        renderLogin(err.message);
-      }
+    document.getElementById('method-tabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.method-tab');
+      if (!btn) return;
+      state.loginMethod = btn.dataset.method;
+      renderLogin();
     });
+
+    if (isOtp) {
+      bindOtpForm();
+    } else {
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const phone = document.getElementById('login-phone').value.trim();
+        const password = document.getElementById('login-password').value;
+        try {
+          const result = await api('/login', { method: 'POST', body: JSON.stringify({ role: state.loginRole, phone, password }) });
+          saveSession(result.token, result.role, result.user);
+          toast('Welcome back, ' + (result.user.name || result.user.businessName || result.user.username) + '!', 'success');
+          render();
+        } catch (err) {
+          renderLogin(err.message);
+        }
+      });
+    }
 
     document.getElementById('forgot-password-btn').addEventListener('click', openForgotPasswordModal);
     const registerBtn = document.getElementById('register-business-btn');
     if (registerBtn) registerBtn.addEventListener('click', openRegisterBusinessModal);
+  }
+
+  function otpFormHtml() {
+    return (
+      '<form id="otp-request-form">' +
+        '<div class="field"><label>Phone</label><input id="otp-phone" required pattern="[0-9]{10}" placeholder="10-digit number" autocomplete="tel" /></div>' +
+        '<button type="submit" class="btn btn-primary btn-block" id="send-otp-btn">Send OTP</button>' +
+      '</form>' +
+      '<div id="otp-step2" class="hidden">' +
+        '<div class="otp-tap-row">' +
+          '<a href="#" target="_blank" rel="noopener" class="btn btn-outline-light" id="otp-wa-link">💬 WhatsApp</a>' +
+          '<a href="#" target="_blank" rel="noopener" class="btn btn-outline-light" id="otp-sms-link">✉️ SMS</a>' +
+        '</div>' +
+        '<p style="font-size:12px;color:rgba(255,255,255,0.55);margin:10px 0 16px;">Tap one to see your code, then enter it below.</p>' +
+        '<form id="otp-verify-form">' +
+          '<div class="field"><label>Enter Code</label><input id="otp-code" required maxlength="6" pattern="[0-9]{6}" placeholder="6-digit code" autocomplete="one-time-code" /></div>' +
+          '<button type="submit" class="btn btn-primary btn-block">Verify &amp; Log In</button>' +
+        '</form>' +
+      '</div>'
+    );
+  }
+
+  function bindOtpForm() {
+    document.getElementById('otp-request-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const phone = document.getElementById('otp-phone').value.trim();
+      try {
+        const result = await api('/otp/request', { method: 'POST', body: JSON.stringify({ role: state.loginRole, phone }) });
+        document.getElementById('otp-wa-link').href = result.waLink;
+        document.getElementById('otp-sms-link').href = result.smsLink;
+        document.getElementById('otp-step2').classList.remove('hidden');
+        document.getElementById('send-otp-btn').textContent = 'Resend OTP';
+        toast('Code ready — tap WhatsApp or SMS to view it', 'success');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('otp-verify-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const phone = document.getElementById('otp-phone').value.trim();
+      const otp = document.getElementById('otp-code').value.trim();
+      try {
+        const result = await api('/otp/verify', { method: 'POST', body: JSON.stringify({ role: state.loginRole, phone, otp }) });
+        saveSession(result.token, result.role, result.user);
+        toast('Welcome back, ' + (result.user.name || result.user.businessName || result.user.username) + '!', 'success');
+        render();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
   }
 
   function openForgotPasswordModal() {
