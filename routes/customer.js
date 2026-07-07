@@ -32,7 +32,7 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
 
     res.json({
       customer: { name: customer.name, phone: customer.phone, flat: customer.flat },
-      client: { businessName: client.businessName, ownerName: client.ownerName, phone: client.phone },
+      client: { businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area },
       month,
       vehicles,
       anyDue,

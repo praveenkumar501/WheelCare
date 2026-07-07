@@ -75,6 +75,10 @@
 
   function money(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
 
+  function initials(name) {
+    return String(name || '').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  }
+
   function monthLabel(monthStr) {
     if (!monthStr) return '';
     const [y, m] = monthStr.split('-').map(Number);
@@ -491,6 +495,10 @@
         '<div class="stat-card collected"><div class="stat-label">Collected this month</div><div class="stat-value">' + money(d.totalCollected) + '</div></div>' +
         '<div class="stat-card pending"><div class="stat-label">Pending this month</div><div class="stat-value">' + money(d.totalPending) + '</div></div>' +
       '</div>' +
+      '<div class="overview-row overview-row-sm">' +
+        '<div class="overview-card"><div class="ov-value">' + d.totalCustomers + '</div><div class="ov-label">Customers</div></div>' +
+        '<div class="overview-card"><div class="ov-value">' + d.totalVehicles + '</div><div class="ov-label">Vehicles</div></div>' +
+      '</div>' +
       '<div class="section-header"><h3>Payment Due<span class="count-badge">' + d.pendingVehicles.length + '</span></h3>' +
         (d.pendingVehicles.length ? '<button class="btn btn-outline btn-sm" id="remind-all-btn">Remind All</button>' : '') +
       '</div>' +
@@ -498,6 +506,18 @@
         (d.pendingVehicles.length === 0
           ? '<div class="empty-state"><div class="empty-icon">🎉</div>All vehicles are paid up for this month!</div>'
           : d.pendingVehicles.map(pendingItemHtml).join('')) +
+      '</div>' +
+      '<div class="section-header"><h3>Recent Payments</h3>' +
+        '<button class="link-btn" id="view-all-payments-btn">View all</button>' +
+      '</div>' +
+      '<div class="card">' +
+        (d.recentPayments.length === 0
+          ? '<div class="empty-state"><div class="empty-icon">🧾</div>No payments recorded yet.</div>'
+          : d.recentPayments.map((p) =>
+              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="pr-sub">' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
+              '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
+            ).join('')) +
       '</div>';
 
     content.querySelectorAll('[data-remind-wa]').forEach((btn) => {
@@ -508,6 +528,10 @@
     });
     const remindAllBtn = document.getElementById('remind-all-btn');
     if (remindAllBtn) remindAllBtn.addEventListener('click', remindAll);
+    document.getElementById('view-all-payments-btn').addEventListener('click', () => {
+      state.clientTab = 'payments';
+      renderClientTab();
+    });
   }
 
   function pendingItemHtml(v) {
@@ -862,17 +886,16 @@
       '<div class="section-header"><h3>Staff<span class="count-badge">' + staff.length + '</span></h3>' +
         '<button class="btn btn-primary btn-sm" id="add-staff-btn">+ Add Staff</button>' +
       '</div>' +
-      '<div class="card">' +
-        (staff.length === 0
-          ? '<div class="empty-state"><div class="empty-icon">🧰</div>No staff members yet.</div>'
-          : staff.map((s) =>
-              '<div class="staff-row"><div><div class="sr-name">' + esc(s.name) + '</div><div class="sr-phone">' + esc(s.phone) + '</div></div>' +
-              '<div class="cc-actions">' +
-                '<button class="icon-action-btn" title="Edit staff" data-edit-staff="' + s.id + '">' + EDIT_ICON + '</button>' +
-                '<button class="icon-action-btn danger" title="Remove staff" data-remove-staff="' + s.id + '">' + DELETE_ICON + '</button>' +
-              '</div></div>'
-            ).join('')) +
-      '</div>';
+      (staff.length === 0
+        ? '<div class="card"><div class="empty-state"><div class="empty-icon">🧰</div>No staff members yet.</div></div>'
+        : '<div class="cards-grid">' + staff.map((s) =>
+            '<div class="card staff-card"><div class="staff-avatar">' + esc(initials(s.name)) + '</div>' +
+            '<div class="staff-info"><div class="sr-name">' + esc(s.name) + '</div><div class="sr-phone">' + esc(s.phone) + '</div></div>' +
+            '<div class="cc-actions">' +
+              '<button class="icon-action-btn" title="Edit staff" data-edit-staff="' + s.id + '">' + EDIT_ICON + '</button>' +
+              '<button class="icon-action-btn danger" title="Remove staff" data-remove-staff="' + s.id + '">' + DELETE_ICON + '</button>' +
+            '</div></div>'
+          ).join('') + '</div>');
 
     document.getElementById('add-staff-btn').addEventListener('click', () => {
       const html =
@@ -1046,7 +1069,15 @@
           '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + statusLabel + '</span></div></div>'
         );
       }).join('') + '</div>' +
-      '<button class="btn btn-navy btn-block" id="contact-btn" style="margin: 16px 0 6px;">💬 Message ' + esc(d.client.businessName) + ' on WhatsApp</button>' +
+      '<div class="section-header"><h3>Your Service Provider</h3></div>' +
+      '<div class="card provider-card">' +
+        '<div class="provider-info">' +
+          '<div class="provider-avatar">' + esc(initials(d.client.businessName)) + '</div>' +
+          '<div><div class="provider-name">' + esc(d.client.businessName) + '</div>' +
+          '<div class="provider-meta">' + esc(d.client.ownerName) + (d.client.area ? ' · ' + esc(d.client.area) : '') + '</div></div>' +
+        '</div>' +
+        '<button class="btn btn-navy btn-block" id="contact-btn" style="margin-top:14px;">💬 Message on WhatsApp</button>' +
+      '</div>' +
       '<div class="section-header"><h3>Payment History<span class="count-badge">' + d.paymentHistory.length + '</span></h3></div>' +
       '<div class="card">' +
         (d.paymentHistory.length === 0

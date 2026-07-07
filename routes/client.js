@@ -109,12 +109,35 @@ module.exports = function registerClientRoutes(app, authenticate) {
       }
     }
 
+    const customerById = new Map(customers.map((c) => [c.id, c]));
+    const vehicleById = new Map();
+    customers.forEach((c) => c.vehicles.forEach((v) => vehicleById.set(v.id, v)));
+    const totalVehicles = vehicleById.size;
+
+    const recentPayments = db.payments
+      .filter((p) => clientVehicleIds.has(p.vehicleId))
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5)
+      .map((p) => {
+        const vehicle = vehicleById.get(p.vehicleId);
+        const customer = customerById.get(vehicle.customerId);
+        return {
+          ...p,
+          vehicleType: vehicle.type,
+          vehicleNumber: vehicle.number,
+          customerName: customer.name,
+        };
+      });
+
     res.json({
       client: { businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area },
       month,
       totalCollected,
       totalPending,
       pendingCount: pendingVehicles.length,
+      totalCustomers: customers.length,
+      totalVehicles,
+      recentPayments,
       customers,
       pendingVehicles,
     });
