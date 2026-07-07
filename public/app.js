@@ -89,6 +89,29 @@
     return overlay;
   }
 
+  function showSendConfirmation(overlay, waLink, smsLink, onDone) {
+    const body = overlay.querySelector('.modal-body');
+    body.innerHTML =
+      '<div style="text-align:center; padding: 8px 0 4px;">' +
+        '<div style="font-size:34px; margin-bottom:10px;">✅</div>' +
+        '<p style="font-size:13.5px; color:var(--text-muted); margin-bottom:18px;">Send a WhatsApp or SMS notification now?</p>' +
+        '<div style="display:flex; gap:10px;">' +
+          '<a href="' + waLink + '" target="_blank" rel="noopener" class="btn btn-primary" style="flex:1;">💬 WhatsApp</a>' +
+          '<a href="' + smsLink + '" target="_blank" rel="noopener" class="btn btn-outline" style="flex:1;">✉️ SMS</a>' +
+        '</div>' +
+        '<button class="btn btn-ghost btn-block" id="confirm-done-btn" style="margin-top:10px;">Skip</button>' +
+      '</div>';
+    body.querySelector('#confirm-done-btn').addEventListener('click', () => { overlay.remove(); onDone(); });
+    body.querySelectorAll('a.btn').forEach((a) => {
+      a.addEventListener('click', () => setTimeout(() => { overlay.remove(); onDone(); }, 200));
+    });
+  }
+
+  function openSendConfirmationModal(title, waLink, smsLink, onDone) {
+    const overlay = openModal(title, '<div></div>');
+    showSendConfirmation(overlay, waLink, smsLink, onDone);
+  }
+
   // ---------------- Root render ----------------
   function render() {
     if (!state.token) return renderLogin();
@@ -531,11 +554,12 @@
           payload.vehicle = { type: f.get('vtype'), number: f.get('vnumber'), model: f.get('vmodel'), planAmount: f.get('vamount') };
         }
         try {
-          await api('/client/customers', { method: 'POST', body: JSON.stringify(payload) });
+          const result = await api('/client/customers', { method: 'POST', body: JSON.stringify(payload) });
           toast('Customer added', 'success');
-          overlay.remove();
-          await loadClientData();
-          renderClientTab();
+          showSendConfirmation(overlay, result.welcomeWaLink, result.welcomeSmsLink, async () => {
+            await loadClientData();
+            renderClientTab();
+          });
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -702,10 +726,9 @@
           e.preventDefault();
           const f = new FormData(e.target);
           try {
-            await api('/client/staff', { method: 'POST', body: JSON.stringify({ name: f.get('name'), phone: f.get('phone') }) });
+            const result = await api('/client/staff', { method: 'POST', body: JSON.stringify({ name: f.get('name'), phone: f.get('phone') }) });
             toast('Staff member added', 'success');
-            overlay.remove();
-            renderClientStaff();
+            showSendConfirmation(overlay, result.welcomeWaLink, result.welcomeSmsLink, renderClientStaff);
           } catch (err) {
             toast(err.message, 'error');
           }
@@ -807,13 +830,15 @@
       e.preventDefault();
       const f = new FormData(e.target);
       try {
-        await api('/client/payments', {
+        const result = await api('/client/payments', {
           method: 'POST',
           body: JSON.stringify({ vehicleId: f.get('vehicleId'), month: f.get('month'), amount: f.get('amount'), method: f.get('method') }),
         });
         toast('Payment recorded', 'success');
-        await loadClientData();
-        renderClientPayments();
+        openSendConfirmationModal('Send Receipt', result.receiptWaLink, result.receiptSmsLink, async () => {
+          await loadClientData();
+          renderClientPayments();
+        });
       } catch (err) {
         toast(err.message, 'error');
       }

@@ -4,6 +4,9 @@ const {
   monthFromDate,
   computeVehicleDue,
   buildReminderMessage,
+  buildWelcomeMessage,
+  buildStaffWelcomeMessage,
+  buildPaymentReceiptMessage,
   buildWaLink,
   buildSmsLink,
   isValidPhone,
@@ -143,6 +146,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       return res.status(409).json({ error: 'Username already taken' });
     }
 
+    const client = db.clients.find((c) => c.id === clientId);
     const customer = {
       id: nextId(db, 'customers', 'cu'),
       clientId,
@@ -170,7 +174,22 @@ module.exports = function registerClientRoutes(app, authenticate) {
     }
 
     writeDB(db);
-    res.status(201).json({ customer: { ...customer, password: undefined }, vehicle: createdVehicle });
+
+    const welcomeMessage = buildWelcomeMessage({
+      customerName: customer.name,
+      businessName: client.businessName,
+      username: customer.username,
+      vehicleType: createdVehicle && createdVehicle.type,
+      vehicleNumber: createdVehicle && createdVehicle.number,
+    });
+
+    res.status(201).json({
+      customer: { ...customer, password: undefined },
+      vehicle: createdVehicle,
+      welcomeMessage,
+      welcomeWaLink: buildWaLink(customer.phone, welcomeMessage),
+      welcomeSmsLink: buildSmsLink(customer.phone, welcomeMessage),
+    });
   });
 
   app.put('/api/client/customers/:id', authenticate('client'), (req, res) => {
@@ -309,6 +328,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!isValidPhone(phone)) return res.status(400).json({ error: 'phone must be a 10-digit number' });
 
     const db = readDB();
+    const client = db.clients.find((c) => c.id === req.session.id);
     const member = {
       id: nextId(db, 'staff', 's'),
       clientId: req.session.id,
@@ -318,7 +338,14 @@ module.exports = function registerClientRoutes(app, authenticate) {
     };
     db.staff.push(member);
     writeDB(db);
-    res.status(201).json({ staff: member });
+
+    const welcomeMessage = buildStaffWelcomeMessage({ staffName: member.name, businessName: client.businessName });
+    res.status(201).json({
+      staff: member,
+      welcomeMessage,
+      welcomeWaLink: buildWaLink(member.phone, welcomeMessage),
+      welcomeSmsLink: buildSmsLink(member.phone, welcomeMessage),
+    });
   });
 
   app.put('/api/client/staff/:id', authenticate('client'), (req, res) => {
@@ -410,7 +437,25 @@ module.exports = function registerClientRoutes(app, authenticate) {
     }
 
     writeDB(db);
-    res.status(201).json({ payment });
+
+    const customer = db.customers.find((c) => c.id === vehicle.customerId);
+    const client = db.clients.find((c) => c.id === clientId);
+    const receiptMessage = buildPaymentReceiptMessage({
+      customerName: customer.name,
+      businessName: client.businessName,
+      vehicleType: vehicle.type,
+      vehicleNumber: vehicle.number,
+      amount: payment.amount,
+      month: payment.month,
+      method: payment.method,
+    });
+
+    res.status(201).json({
+      payment,
+      receiptMessage,
+      receiptWaLink: buildWaLink(customer.phone, receiptMessage),
+      receiptSmsLink: buildSmsLink(customer.phone, receiptMessage),
+    });
   });
 
   // ---------- Reminders ----------

@@ -95,6 +95,27 @@ function buildReminderMessage({ customerName, businessName, vehicleType, vehicle
   );
 }
 
+function buildWelcomeMessage({ customerName, businessName, username, vehicleType, vehicleNumber }) {
+  const vehicleLine = vehicleType && vehicleNumber
+    ? ` We've registered your ${vehicleType} (${vehicleNumber}) for the monthly wash plan.`
+    : '';
+  return (
+    `Hi ${customerName}, welcome to ${businessName}!${vehicleLine} ` +
+    `You can log in anytime to check your dues and payment history (username: ${username}). Thank you!`
+  );
+}
+
+function buildStaffWelcomeMessage({ staffName, businessName }) {
+  return `Hi ${staffName}, you've been added as a staff member at ${businessName}. Welcome aboard!`;
+}
+
+function buildPaymentReceiptMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, month, method }) {
+  return (
+    `Hi ${customerName}, this confirms ${businessName} received your payment of ₹${amount} (${method}) ` +
+    `for your ${vehicleType} (${vehicleNumber}) — ${formatMonthLabel(month)}. Thank you!`
+  );
+}
+
 function buildWaLink(phone, message) {
   const normalized = normalizePhone(phone);
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
@@ -126,6 +147,9 @@ module.exports = {
   computeVehicleDue,
   normalizePhone,
   buildReminderMessage,
+  buildWelcomeMessage,
+  buildStaffWelcomeMessage,
+  buildPaymentReceiptMessage,
   buildWaLink,
   buildSmsLink,
   makeToken,
