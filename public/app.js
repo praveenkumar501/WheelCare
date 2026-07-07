@@ -17,6 +17,7 @@
     payments: null,
     adminClients: null,
     clientRequests: null,
+    customerSearch: '',
   };
 
   const $app = document.getElementById('app');
@@ -372,27 +373,55 @@
     if (!d) { content.innerHTML = '<div class="loading-spinner">Loading…</div>'; return; }
 
     content.innerHTML =
-      '<div class="section-header"><h3>Customers<span class="count-badge">' + d.customers.length + '</span></h3>' +
+      '<div class="section-header"><h3>Customers<span class="count-badge" id="customers-count">' + d.customers.length + '</span></h3>' +
         '<button class="btn btn-primary btn-sm" id="add-customer-btn">+ Add Customer</button>' +
       '</div>' +
-      (d.customers.length === 0
-        ? '<div class="card"><div class="empty-state"><div class="empty-icon">👥</div>No customers yet. Add your first one!</div></div>'
-        : '<div class="cards-grid">' + d.customers.map(customerCardHtml).join('') + '</div>');
+      '<div class="field"><input type="search" id="customer-search" placeholder="Search by name, flat, phone or vehicle number…" value="' + esc(state.customerSearch) + '" /></div>' +
+      '<div id="customers-list"></div>';
 
     document.getElementById('add-customer-btn').addEventListener('click', openAddCustomerModal);
-    content.querySelectorAll('[data-add-vehicle]').forEach((btn) => {
+    const searchInput = document.getElementById('customer-search');
+    searchInput.addEventListener('input', (e) => {
+      state.customerSearch = e.target.value;
+      renderCustomersList();
+    });
+    renderCustomersList();
+  }
+
+  function filteredCustomers() {
+    const q = state.customerSearch.trim().toLowerCase();
+    if (!q) return state.data.customers;
+    return state.data.customers.filter((c) =>
+      c.name.toLowerCase().includes(q) ||
+      (c.flat || '').toLowerCase().includes(q) ||
+      c.phone.includes(q) ||
+      c.vehicles.some((v) => v.number.toLowerCase().includes(q))
+    );
+  }
+
+  function renderCustomersList() {
+    const list = document.getElementById('customers-list');
+    const customers = filteredCustomers();
+    document.getElementById('customers-count').textContent = customers.length;
+
+    list.innerHTML = customers.length === 0
+      ? '<div class="card"><div class="empty-state"><div class="empty-icon">' + (state.customerSearch ? '🔍' : '👥') + '</div>' +
+        (state.customerSearch ? 'No customers match your search.' : 'No customers yet. Add your first one!') + '</div></div>'
+      : '<div class="cards-grid">' + customers.map(customerCardHtml).join('') + '</div>';
+
+    list.querySelectorAll('[data-add-vehicle]').forEach((btn) => {
       btn.addEventListener('click', () => openAddVehicleModal(btn.dataset.addVehicle, btn.dataset.customerName));
     });
-    content.querySelectorAll('[data-edit-customer]').forEach((btn) => {
+    list.querySelectorAll('[data-edit-customer]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const customer = state.data.customers.find((c) => c.id === btn.dataset.editCustomer);
         if (customer) openEditCustomerModal(customer);
       });
     });
-    content.querySelectorAll('[data-delete-customer]').forEach((btn) => {
+    list.querySelectorAll('[data-delete-customer]').forEach((btn) => {
       btn.addEventListener('click', () => deleteCustomer(btn.dataset.deleteCustomer, btn.dataset.customerName));
     });
-    content.querySelectorAll('[data-edit-vehicle]').forEach((btn) => {
+    list.querySelectorAll('[data-edit-vehicle]').forEach((btn) => {
       btn.addEventListener('click', () => {
         for (const customer of state.data.customers) {
           const vehicle = customer.vehicles.find((v) => v.id === btn.dataset.editVehicle);
@@ -400,7 +429,7 @@
         }
       });
     });
-    content.querySelectorAll('[data-delete-vehicle]').forEach((btn) => {
+    list.querySelectorAll('[data-delete-vehicle]').forEach((btn) => {
       btn.addEventListener('click', () => deleteVehicle(btn.dataset.deleteVehicle, btn.dataset.vehicleNumber));
     });
   }
