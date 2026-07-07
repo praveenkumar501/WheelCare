@@ -11,6 +11,7 @@
     role: localStorage.getItem('wc_role') || null,
     user: JSON.parse(localStorage.getItem('wc_user') || 'null'),
     loginRole: 'client',
+    view: 'landing',
     clientTab: 'home',
     data: null, // role-specific dashboard payload
     staff: null,
@@ -63,6 +64,7 @@
 
   function logout() {
     state.token = null; state.role = null; state.user = null; state.data = null;
+    state.view = 'login';
     localStorage.removeItem('wc_token'); localStorage.removeItem('wc_role'); localStorage.removeItem('wc_user');
     render();
   }
@@ -114,10 +116,55 @@
 
   // ---------------- Root render ----------------
   function render() {
-    if (!state.token) return renderLogin();
+    if (!state.token) return state.view === 'login' ? renderLogin() : renderLanding();
     if (state.role === 'superadmin') return renderAdminShell();
     if (state.role === 'client') return renderClientShell();
     if (state.role === 'customer') return renderCustomerShell();
+  }
+
+  // ================= LANDING =================
+  const LANDING_FEATURES = [
+    { icon: '💰', title: 'Dues Tracked Automatically', body: 'Every vehicle’s subscription is tracked month by month — arrears carry forward automatically, no spreadsheets.' },
+    { icon: '💬', title: 'WhatsApp & SMS Reminders', body: 'One-tap payment reminders and receipts via wa.me and SMS deep links — no messaging API bills.' },
+    { icon: '👥', title: 'Built for Every Role', body: 'Business owners, staff, and customers each get a dashboard scoped to exactly what they need.' },
+    { icon: '📊', title: 'Real-Time Dashboard', body: 'Collections, pending dues, and full payment history — always current, always one tap away.' },
+  ];
+
+  function renderLanding() {
+    $app.innerHTML =
+      '<div class="landing premium-bg">' +
+        '<nav class="landing-nav">' +
+          '<div class="landing-brand">🛞 Wheel<span class="grad-text">Care</span></div>' +
+          '<button class="btn btn-outline-light btn-sm" id="nav-login-btn">Log In</button>' +
+        '</nav>' +
+        '<section class="landing-hero">' +
+          '<div class="auth-badge-glow" style="margin:0 auto 24px;">🛞</div>' +
+          '<h1 class="landing-headline">Run your <span class="grad-text">vehicle care</span> subscription business like a pro</h1>' +
+          '<p class="landing-sub">Track monthly dues, send WhatsApp reminders with one tap, and manage customers, staff and payments — all from one dashboard.</p>' +
+          '<div class="landing-cta-row">' +
+            '<button class="btn btn-primary" id="get-started-btn">Get Started Free</button>' +
+            '<button class="btn btn-outline-light" id="hero-login-btn">I already have an account</button>' +
+          '</div>' +
+        '</section>' +
+        '<section class="landing-features">' +
+          '<div class="feature-grid">' +
+            LANDING_FEATURES.map((f) =>
+              '<div class="glass-card feature-card"><div class="feature-icon">' + f.icon + '</div>' +
+              '<h3>' + esc(f.title) + '</h3><p>' + esc(f.body) + '</p></div>'
+            ).join('') +
+          '</div>' +
+        '</section>' +
+        '<footer class="landing-footer">' +
+          '<p>WheelCare — built for community vehicle wash &amp; maintenance businesses.</p>' +
+          '<button class="link-btn" id="admin-login-btn">Platform admin login</button>' +
+        '</footer>' +
+      '</div>';
+
+    const goToLogin = (role) => { state.loginRole = role; state.view = 'login'; render(); };
+    document.getElementById('nav-login-btn').addEventListener('click', () => goToLogin('client'));
+    document.getElementById('hero-login-btn').addEventListener('click', () => goToLogin('client'));
+    document.getElementById('get-started-btn').addEventListener('click', () => goToLogin('client'));
+    document.getElementById('admin-login-btn').addEventListener('click', () => goToLogin('superadmin'));
   }
 
   // ================= LOGIN =================
@@ -130,31 +177,37 @@
 
   function renderLogin(errorMsg) {
     $app.innerHTML =
-      '<div class="auth-screen">' +
-        '<div class="auth-hero">' +
-          '<div class="hero-badge">🛞</div>' +
-          '<h1>WheelCare</h1>' +
-          '<p>Monthly bike &amp; car wash subscriptions for your community — one tap to track dues and send reminders.</p>' +
-        '</div>' +
-        '<div class="auth-card">' +
-          '<div class="role-tabs" id="role-tabs">' +
-            Object.keys(ROLE_LABELS).map((r) =>
-              '<button class="role-tab' + (state.loginRole === r ? ' active' : '') + '" data-role="' + r + '">' + ROLE_LABELS[r] + '</button>'
-            ).join('') +
+      '<div class="auth-screen premium-bg">' +
+        '<button class="auth-back-link" id="auth-back-btn">← Back</button>' +
+        '<div class="auth-center">' +
+          '<div class="auth-badge-glow">🛞</div>' +
+          '<h1 class="auth-brand">Wheel<span class="grad-text">Care</span></h1>' +
+          '<p class="auth-tagline">Monthly bike &amp; car wash subscriptions for your community.</p>' +
+          '<div class="glass-card auth-card-dark">' +
+            '<div class="role-tabs" id="role-tabs">' +
+              Object.keys(ROLE_LABELS).map((r) =>
+                '<button class="role-tab' + (state.loginRole === r ? ' active' : '') + '" data-role="' + r + '">' + ROLE_LABELS[r] + '</button>'
+              ).join('') +
+            '</div>' +
+            (errorMsg ? '<div class="auth-error">' + esc(errorMsg) + '</div>' : '') +
+            '<form id="login-form">' +
+              '<div class="field"><label>Username</label><input id="login-username" autocomplete="username" required /></div>' +
+              '<div class="field"><label>Password</label><input id="login-password" type="password" autocomplete="current-password" required /></div>' +
+              '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
+            '</form>' +
+            '<div class="auth-links">' +
+              '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
+              (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '') +
+            '</div>' +
+            '<div class="auth-hint">' + ROLE_HINTS[state.loginRole] + '</div>' +
           '</div>' +
-          (errorMsg ? '<div class="auth-error">' + esc(errorMsg) + '</div>' : '') +
-          '<form id="login-form">' +
-            '<div class="field"><label>Username</label><input id="login-username" autocomplete="username" required /></div>' +
-            '<div class="field"><label>Password</label><input id="login-password" type="password" autocomplete="current-password" required /></div>' +
-            '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
-          '</form>' +
-          '<div class="auth-links">' +
-            '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
-            (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '') +
-          '</div>' +
-          '<div class="auth-hint">' + ROLE_HINTS[state.loginRole] + '</div>' +
         '</div>' +
       '</div>';
+
+    document.getElementById('auth-back-btn').addEventListener('click', () => {
+      state.view = 'landing';
+      render();
+    });
 
     document.getElementById('role-tabs').addEventListener('click', (e) => {
       const btn = e.target.closest('.role-tab');
