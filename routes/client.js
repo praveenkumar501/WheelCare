@@ -4,6 +4,12 @@ const {
   buildReminderMessage,
   buildWaLink,
   buildSmsLink,
+  isValidPhone,
+  isValidPassword,
+  isValidVehicleType,
+  isValidPlanAmount,
+  PAYMENT_METHODS,
+  MIN_PASSWORD_LENGTH,
 } = require('../utils');
 
 module.exports = function registerClientRoutes(app, authenticate) {
@@ -106,6 +112,20 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!name || !phone || !username || !password) {
       return res.status(400).json({ error: 'name, phone, username and password are required' });
     }
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({ error: 'phone must be a 10-digit number' });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+    }
+    if (vehicle && (vehicle.type || vehicle.number || vehicle.planAmount)) {
+      if (!isValidVehicleType(vehicle.type)) {
+        return res.status(400).json({ error: 'vehicle type must be Bike or Car' });
+      }
+      if (!vehicle.number || !isValidPlanAmount(vehicle.planAmount)) {
+        return res.status(400).json({ error: 'vehicle number and a positive planAmount are required' });
+      }
+    }
 
     const db = readDB();
     if (db.customers.some((c) => c.username === username)) {
@@ -166,6 +186,12 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!type || !number || !planAmount) {
       return res.status(400).json({ error: 'type, number and planAmount are required' });
     }
+    if (!isValidVehicleType(type)) {
+      return res.status(400).json({ error: 'type must be Bike or Car' });
+    }
+    if (!isValidPlanAmount(planAmount)) {
+      return res.status(400).json({ error: 'planAmount must be a positive number' });
+    }
 
     const db = readDB();
     const customer = requireOwnCustomer(db, clientId, req.params.customerId);
@@ -207,6 +233,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
   app.post('/api/client/staff', authenticate('client'), (req, res) => {
     const { name, phone } = req.body || {};
     if (!name || !phone) return res.status(400).json({ error: 'name and phone are required' });
+    if (!isValidPhone(phone)) return res.status(400).json({ error: 'phone must be a 10-digit number' });
 
     const db = readDB();
     const member = {
@@ -266,7 +293,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
     const clientId = req.session.id;
     const { vehicleId, month, amount, method } = req.body || {};
     if (!vehicleId || !method) return res.status(400).json({ error: 'vehicleId and method are required' });
-    if (!['Cash', 'UPI'].includes(method)) return res.status(400).json({ error: 'method must be Cash or UPI' });
+    if (!PAYMENT_METHODS.includes(method)) return res.status(400).json({ error: 'method must be Cash or UPI' });
+    if (amount && !isValidPlanAmount(amount)) return res.status(400).json({ error: 'amount must be a positive number' });
 
     const db = readDB();
     const vehicle = requireOwnVehicle(db, clientId, vehicleId);

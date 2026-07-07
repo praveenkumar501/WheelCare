@@ -154,7 +154,7 @@
           '<div class="topbar-left"><div class="logo-dot">🛞</div><div><div class="topbar-title">WheelCare</div><div class="topbar-sub">' + esc(subtitle) + '</div></div></div>' +
           '<div class="topbar-right"><span class="topbar-user">' + esc(name) + '</span><button class="icon-btn" id="logout-btn">Logout</button></div>' +
         '</header>' +
-        '<main class="content' + (showBottomNav ? '' : ' no-bottom-pad') + '" id="content"><div class="loading-spinner">Loading…</div></main>' +
+        '<main class="content' + (showBottomNav ? ' with-sidebar' : ' no-bottom-pad') + '" id="content"><div class="loading-spinner">Loading…</div></main>' +
         (showBottomNav ? bottomNavHtml() : '') +
       '</div>'
     );
@@ -167,7 +167,7 @@
       { id: 'staff', icon: '🧰', label: 'Staff' },
       { id: 'payments', icon: '💳', label: 'Payments' },
     ];
-    return '<nav class="bottom-nav" id="bottom-nav">' +
+    return '<nav class="bottom-nav sidebar-nav" id="bottom-nav">' +
       tabs.map((t) =>
         '<button class="nav-item' + (state.clientTab === t.id ? ' active' : '') + '" data-tab="' + t.id + '">' +
           '<span class="nav-icon">' + t.icon + '</span><span>' + t.label + '</span>' +
@@ -297,7 +297,7 @@
       '</div>' +
       (d.customers.length === 0
         ? '<div class="card"><div class="empty-state"><div class="empty-icon">👥</div>No customers yet. Add your first one!</div></div>'
-        : d.customers.map(customerCardHtml).join(''));
+        : '<div class="cards-grid">' + d.customers.map(customerCardHtml).join('') + '</div>');
 
     document.getElementById('add-customer-btn').addEventListener('click', openAddCustomerModal);
     content.querySelectorAll('[data-add-vehicle]').forEach((btn) => {
@@ -342,7 +342,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
-          '<div class="field"><label>Login Password</label><input name="password" required /></div>' +
+          '<div class="field"><label>Login Password</label><input name="password" type="password" required minlength="6" title="At least 6 characters" /></div>' +
         '</div>' +
         '<div class="divider-label">First Vehicle (optional)</div>' +
         '<div class="form-grid">' +
@@ -351,7 +351,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="number" placeholder="300" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="number" min="1" placeholder="300" /></div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Add Customer</button>' +
       '</form>';
@@ -390,7 +390,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="model" placeholder="Honda Activa" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="planAmount" type="number" required placeholder="300" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="planAmount" type="number" min="1" required placeholder="300" /></div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Add Vehicle</button>' +
       '</form>';
@@ -572,7 +572,7 @@
           : 'Your subscription is fully settled for ' + esc(monthLabel(d.month)) + '. Thank you!') + '</p>' +
       '</div>' +
       '<div class="section-header"><h3>My Vehicles</h3></div>' +
-      d.vehicles.map((v) => {
+      '<div class="cards-grid">' + d.vehicles.map((v) => {
         const icon = v.type === 'Car' ? '🚗' : '🛵';
         return (
           '<div class="vehicle-card"><div class="vc-left"><div class="vc-icon">' + icon + '</div>' +
@@ -580,7 +580,7 @@
           '<div class="vc-right"><div class="vc-amount">' + money(v.planAmount) + '/mo</div>' +
           '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + (v.paid ? 'Paid' : 'Due') + '</span></div></div>'
         );
-      }).join('') +
+      }).join('') + '</div>' +
       '<button class="btn btn-navy btn-block" id="contact-btn" style="margin: 16px 0 6px;">💬 Message ' + esc(d.client.businessName) + ' on WhatsApp</button>' +
       '<div class="section-header"><h3>Payment History<span class="count-badge">' + d.paymentHistory.length + '</span></h3></div>' +
       '<div class="card">' +
@@ -628,7 +628,7 @@
       '</div>' +
       (state.adminClients.length === 0
         ? '<div class="card"><div class="empty-state"><div class="empty-icon">🏢</div>No client businesses onboarded yet.</div></div>'
-        : state.adminClients.map((c) =>
+        : '<div class="cards-grid">' + state.adminClients.map((c) =>
             '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(c.businessName) + '</div>' +
             '<div class="cc-meta">' + esc(c.ownerName) + ' · ' + esc(c.area || '') + '</div></div></div>' +
             '<div class="cc-vehicles">' +
@@ -637,7 +637,7 @@
               '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">💰</span><div class="vr-name">Revenue collected</div></div>' +
               '<span class="vr-amount">' + money(c.revenue) + '</span></div>' +
             '</div></div>'
-          ).join(''));
+          ).join('') + '</div>');
 
     document.getElementById('add-client-btn').addEventListener('click', () => {
       const html =
@@ -650,7 +650,7 @@
           '</div>' +
           '<div class="form-grid">' +
             '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
-            '<div class="field"><label>Login Password</label><input name="password" required /></div>' +
+            '<div class="field"><label>Login Password</label><input name="password" type="password" required minlength="6" title="At least 6 characters" /></div>' +
           '</div>' +
           '<button type="submit" class="btn btn-primary btn-block">Onboard Business</button>' +
         '</form>';

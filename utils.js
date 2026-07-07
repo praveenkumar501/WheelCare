@@ -18,6 +18,27 @@ function normalizePhone(phone) {
   return digits;
 }
 
+const VEHICLE_TYPES = ['Bike', 'Car'];
+const PAYMENT_METHODS = ['Cash', 'UPI'];
+const MIN_PASSWORD_LENGTH = 6;
+
+function isValidPhone(phone) {
+  return /^[0-9]{10}$/.test(String(phone || ''));
+}
+
+function isValidPassword(password) {
+  return typeof password === 'string' && password.length >= MIN_PASSWORD_LENGTH;
+}
+
+function isValidVehicleType(type) {
+  return VEHICLE_TYPES.includes(type);
+}
+
+function isValidPlanAmount(amount) {
+  const n = Number(amount);
+  return Number.isFinite(n) && n > 0;
+}
+
 function buildReminderMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, month }) {
   return (
     `Hi ${customerName}, this is a reminder from ${businessName}. ` +
@@ -59,4 +80,11 @@ module.exports = {
   makeToken,
   sanitizeClient,
   sanitizeCustomer,
+  VEHICLE_TYPES,
+  PAYMENT_METHODS,
+  MIN_PASSWORD_LENGTH,
+  isValidPhone,
+  isValidPassword,
+  isValidVehicleType,
+  isValidPlanAmount,
 };

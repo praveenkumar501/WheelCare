@@ -1,5 +1,5 @@
 const { readDB, writeDB, nextId } = require('../db');
-const { sanitizeClient } = require('../utils');
+const { sanitizeClient, isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH } = require('../utils');
 
 module.exports = function registerAdminRoutes(app, authenticate) {
   function clientStats(db, client) {
@@ -28,6 +28,12 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     const { businessName, ownerName, username, password, phone, area } = req.body || {};
     if (!businessName || !ownerName || !username || !password || !phone) {
       return res.status(400).json({ error: 'businessName, ownerName, username, password and phone are required' });
+    }
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({ error: 'phone must be a 10-digit number' });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     const db = readDB();
