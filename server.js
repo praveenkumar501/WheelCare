@@ -1,11 +1,12 @@
 const express = require('express');
 const path = require('path');
-const { readDB, writeDB } = require('./db');
-const { makeToken, sanitizeClient, sanitizeCustomer, isValidPassword, MIN_PASSWORD_LENGTH } = require('./utils');
+const { readDB } = require('./db');
+const { makeToken, sanitizeClient, sanitizeCustomer, comparePassword } = require('./utils');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.set('trust proxy', true);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -35,14 +36,14 @@ app.post('/api/login', (req, res) => {
   const db = readDB();
 
   if (role === 'superadmin') {
-    if (db.superadmin.username === username && db.superadmin.password === password) {
+    if (db.superadmin.username === username && comparePassword(password, db.superadmin.password)) {
       const token = makeToken();
       sessions.set(token, { role: 'superadmin', id: 'superadmin' });
       return res.json({ token, role: 'superadmin', user: { name: 'Super Admin', username } });
     }
   } else if (role === 'client') {
-    const client = db.clients.find((c) => c.username === username && c.password === password);
-    if (client) {
+    const client = db.clients.find((c) => c.username === username);
+    if (client && comparePassword(password, client.password)) {
       if (client.active === false) {
         return res.status(403).json({ error: 'This business account has been deactivated. Contact the platform admin.' });
       }
@@ -51,8 +52,8 @@ app.post('/api/login', (req, res) => {
       return res.json({ token, role: 'client', user: sanitizeClient(client) });
     }
   } else if (role === 'customer') {
-    const customer = db.customers.find((c) => c.username === username && c.password === password);
-    if (customer) {
+    const customer = db.customers.find((c) => c.username === username);
+    if (customer && comparePassword(password, customer.password)) {
       const parentClient = db.clients.find((c) => c.id === customer.clientId);
       if (parentClient && parentClient.active === false) {
         return res.status(403).json({ error: 'This business account is currently inactive. Please contact them directly.' });

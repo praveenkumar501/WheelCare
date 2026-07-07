@@ -7,16 +7,19 @@ const {
   buildWelcomeMessage,
   buildStaffWelcomeMessage,
   buildPaymentReceiptMessage,
+  buildPasswordSetupPromptMessage,
   buildWaLink,
   buildSmsLink,
+  buildOrigin,
+  buildLoginLink,
+  buildSetPasswordLink,
+  makeToken,
   isValidPhone,
-  isValidPassword,
   isValidVehicleType,
   isValidPlanAmount,
   isValidVehicleNumber,
   normalizeVehicleNumber,
   PAYMENT_METHODS,
-  MIN_PASSWORD_LENGTH,
 } = require('../utils');
 
 module.exports = function registerClientRoutes(app, authenticate) {
@@ -32,7 +35,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
     return customer ? vehicle : null;
   }
 
-  function buildReminder(client, customer, vehicle, due) {
+  function buildReminder(client, customer, vehicle, due, origin) {
     const message = buildReminderMessage({
       customerName: customer.name,
       businessName: client.businessName,
@@ -40,6 +43,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       vehicleNumber: vehicle.number,
       amount: due.dueAmount,
       dueMonths: due.dueMonths,
+      loginUrl: buildLoginLink(origin, 'customer'),
     });
     return {
       customerId: customer.id,
@@ -73,7 +77,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
             const due = computeVehicleDue(vehicle, db.payments, month);
             return { ...vehicle, paid: due.paid, monthsDue: due.dueMonths.length, dueAmount: due.dueAmount };
           });
-        return { ...customer, password: undefined, vehicles };
+        return { ...customer, password: undefined, passwordSetupToken: undefined, vehicles };
       });
 
     const clientVehicleIds = new Set();
@@ -119,15 +123,12 @@ module.exports = function registerClientRoutes(app, authenticate) {
   // ---------- Customers ----------
   app.post('/api/client/customers', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { name, phone, flat, username, password, vehicle } = req.body || {};
-    if (!name || !phone || !username || !password) {
-      return res.status(400).json({ error: 'name, phone, username and password are required' });
+    const { name, phone, flat, username, vehicle } = req.body || {};
+    if (!name || !phone || !username) {
+      return res.status(400).json({ error: 'name, phone and username are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
-    }
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
     if (vehicle && (vehicle.type || vehicle.number || vehicle.planAmount)) {
       if (!isValidVehicleType(vehicle.type)) {
@@ -147,6 +148,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
     }
 
     const client = db.clients.find((c) => c.id === clientId);
+    const setupToken = makeToken();
     const customer = {
       id: nextId(db, 'customers', 'cu'),
       clientId,
@@ -154,7 +156,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
       phone,
       flat: flat || '',
       username,
-      password,
+      password: null,
+      passwordSetupToken: setupToken,
       createdAt: new Date().toISOString(),
     };
     db.customers.push(customer);
@@ -175,16 +178,17 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
     writeDB(db);
 
+    const origin = buildOrigin(req);
     const welcomeMessage = buildWelcomeMessage({
       customerName: customer.name,
       businessName: client.businessName,
-      username: customer.username,
       vehicleType: createdVehicle && createdVehicle.type,
       vehicleNumber: createdVehicle && createdVehicle.number,
+      setupLink: buildSetPasswordLink(origin, setupToken),
     });
 
     res.status(201).json({
-      customer: { ...customer, password: undefined },
+      customer: { ...customer, password: undefined, passwordSetupToken: undefined },
       vehicle: createdVehicle,
       welcomeMessage,
       welcomeWaLink: buildWaLink(customer.phone, welcomeMessage),
@@ -194,15 +198,12 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
   app.put('/api/client/customers/:id', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { name, phone, flat, username, password } = req.body || {};
+    const { name, phone, flat, username } = req.body || {};
     if (!name || !phone || !username) {
       return res.status(400).json({ error: 'name, phone and username are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
-    }
-    if (password && !isValidPassword(password)) {
-      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     const db = readDB();
@@ -216,10 +217,35 @@ module.exports = function registerClientRoutes(app, authenticate) {
     customer.phone = phone;
     customer.flat = flat || '';
     customer.username = username;
-    if (password) customer.password = password;
 
     writeDB(db);
-    res.json({ customer: { ...customer, password: undefined } });
+    res.json({ customer: { ...customer, password: undefined, passwordSetupToken: undefined } });
+  });
+
+  app.post('/api/client/customers/:id/reset-password', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const db = readDB();
+    const customer = requireOwnCustomer(db, clientId, req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    const client = db.clients.find((c) => c.id === clientId);
+
+    const setupToken = makeToken();
+    customer.passwordSetupToken = setupToken;
+    customer.password = null;
+    writeDB(db);
+
+    const origin = buildOrigin(req);
+    const message = buildPasswordSetupPromptMessage({
+      customerName: customer.name,
+      businessName: client.businessName,
+      setupLink: buildSetPasswordLink(origin, setupToken),
+    });
+
+    res.json({
+      message,
+      waLink: buildWaLink(customer.phone, message),
+      smsLink: buildSmsLink(customer.phone, message),
+    });
   });
 
   app.delete('/api/client/customers/:id', authenticate('client'), (req, res) => {
@@ -448,6 +474,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       amount: payment.amount,
       month: payment.month,
       method: payment.method,
+      loginUrl: buildLoginLink(buildOrigin(req), 'customer'),
     });
 
     res.status(201).json({
@@ -470,7 +497,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
     const month = getCurrentMonth();
     const due = computeVehicleDue(vehicle, db.payments, month);
     if (due.paid) return res.status(400).json({ error: 'This vehicle has no pending dues' });
-    res.json({ reminder: buildReminder(client, customer, vehicle, due) });
+    res.json({ reminder: buildReminder(client, customer, vehicle, due, buildOrigin(req)) });
   });
 
   app.get('/api/client/reminders', authenticate('client'), (req, res) => {
@@ -479,13 +506,14 @@ module.exports = function registerClientRoutes(app, authenticate) {
     const client = db.clients.find((c) => c.id === clientId);
     const month = getCurrentMonth();
 
+    const origin = buildOrigin(req);
     const customers = db.customers.filter((c) => c.clientId === clientId);
     const reminders = [];
     for (const customer of customers) {
       const vehicles = db.vehicles.filter((v) => v.customerId === customer.id);
       for (const vehicle of vehicles) {
         const due = computeVehicleDue(vehicle, db.payments, month);
-        if (!due.paid) reminders.push(buildReminder(client, customer, vehicle, due));
+        if (!due.paid) reminders.push(buildReminder(client, customer, vehicle, due, origin));
       }
     }
 

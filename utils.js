@@ -64,6 +64,17 @@ function isValidPassword(password) {
   return typeof password === 'string' && password.length >= MIN_PASSWORD_LENGTH;
 }
 
+const bcrypt = require('bcryptjs');
+
+function hashPassword(password) {
+  return bcrypt.hashSync(password, 10);
+}
+
+function comparePassword(password, hash) {
+  if (!hash) return false;
+  return bcrypt.compareSync(password, hash);
+}
+
 function isValidVehicleType(type) {
   return VEHICLE_TYPES.includes(type);
 }
@@ -84,24 +95,36 @@ function isValidVehicleNumber(number) {
   return VEHICLE_NUMBER_REGEX.test(normalizeVehicleNumber(number));
 }
 
-function buildReminderMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, dueMonths }) {
+function buildOrigin(req) {
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+function buildLoginLink(origin, role) {
+  return `${origin}/#/login?role=${role}`;
+}
+
+function buildSetPasswordLink(origin, token) {
+  return `${origin}/#/set-password?token=${token}`;
+}
+
+function buildReminderMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, dueMonths, loginUrl }) {
   const period = dueMonths.length === 1
     ? `for ${formatMonthLabel(dueMonths[0])}`
     : `for ${dueMonths.length} months (${formatMonthLabel(dueMonths[0])} – ${formatMonthLabel(dueMonths[dueMonths.length - 1])})`;
   return (
     `Hi ${customerName}, this is a reminder from ${businessName}. ` +
     `Your ${vehicleType} (${vehicleNumber}) wash payment of ₹${amount} ${period} is due. ` +
-    `Please pay at your earliest convenience. Thank you!`
+    `Please pay at your earliest convenience. Log in here: ${loginUrl}. Thank you!`
   );
 }
 
-function buildWelcomeMessage({ customerName, businessName, username, vehicleType, vehicleNumber }) {
+function buildWelcomeMessage({ customerName, businessName, vehicleType, vehicleNumber, setupLink }) {
   const vehicleLine = vehicleType && vehicleNumber
     ? ` We've registered your ${vehicleType} (${vehicleNumber}) for the monthly wash plan.`
     : '';
   return (
     `Hi ${customerName}, welcome to ${businessName}!${vehicleLine} ` +
-    `You can log in anytime to check your dues and payment history (username: ${username}). Thank you!`
+    `Tap here to set your password and access your account: ${setupLink}. Thank you!`
   );
 }
 
@@ -109,10 +132,17 @@ function buildStaffWelcomeMessage({ staffName, businessName }) {
   return `Hi ${staffName}, you've been added as a staff member at ${businessName}. Welcome aboard!`;
 }
 
-function buildPaymentReceiptMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, month, method }) {
+function buildPaymentReceiptMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, month, method, loginUrl }) {
   return (
     `Hi ${customerName}, this confirms ${businessName} received your payment of ₹${amount} (${method}) ` +
-    `for your ${vehicleType} (${vehicleNumber}) — ${formatMonthLabel(month)}. Thank you!`
+    `for your ${vehicleType} (${vehicleNumber}) — ${formatMonthLabel(month)}. View your history: ${loginUrl}. Thank you!`
+  );
+}
+
+function buildPasswordSetupPromptMessage({ customerName, businessName, setupLink }) {
+  return (
+    `Hi ${customerName}, ${businessName} sent you a link to set (or reset) your account password: ${setupLink}. ` +
+    `If you didn't request this, you can ignore it.`
   );
 }
 
@@ -135,7 +165,7 @@ function sanitizeClient(client) {
 }
 
 function sanitizeCustomer(customer) {
-  const { password, ...rest } = customer;
+  const { password, passwordSetupToken, ...rest } = customer;
   return rest;
 }
 
@@ -146,10 +176,14 @@ module.exports = {
   getMonthsBetween,
   computeVehicleDue,
   normalizePhone,
+  buildOrigin,
+  buildLoginLink,
+  buildSetPasswordLink,
   buildReminderMessage,
   buildWelcomeMessage,
   buildStaffWelcomeMessage,
   buildPaymentReceiptMessage,
+  buildPasswordSetupPromptMessage,
   buildWaLink,
   buildSmsLink,
   makeToken,
@@ -164,4 +198,6 @@ module.exports = {
   isValidPlanAmount,
   isValidVehicleNumber,
   normalizeVehicleNumber,
+  hashPassword,
+  comparePassword,
 };

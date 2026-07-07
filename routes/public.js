@@ -1,5 +1,5 @@
 const { readDB, writeDB, nextId } = require('../db');
-const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH } = require('../utils');
+const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword } = require('../utils');
 
 module.exports = function registerPublicRoutes(app) {
   // ---------- Business registration requests ----------
@@ -28,7 +28,7 @@ module.exports = function registerPublicRoutes(app) {
       businessName,
       ownerName,
       username,
-      password,
+      password: hashPassword(password),
       phone,
       area: area || '',
       status: 'pending',
@@ -65,8 +65,30 @@ module.exports = function registerPublicRoutes(app) {
       return res.status(404).json({ error: 'No account found matching that username and phone number' });
     }
 
-    account.password = newPassword;
+    account.password = hashPassword(newPassword);
     writeDB(db);
     res.json({ ok: true });
+  });
+
+  // ---------- Customer self-service password setup (via WhatsApp/SMS link) ----------
+  app.post('/api/set-password', (req, res) => {
+    const { token, password } = req.body || {};
+    if (!token || !password) {
+      return res.status(400).json({ error: 'token and password are required' });
+    }
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+    }
+
+    const db = readDB();
+    const customer = db.customers.find((c) => c.passwordSetupToken === token);
+    if (!customer) {
+      return res.status(404).json({ error: 'This setup link is invalid or has already been used' });
+    }
+
+    customer.password = hashPassword(password);
+    customer.passwordSetupToken = null;
+    writeDB(db);
+    res.json({ ok: true, username: customer.username });
   });
 };

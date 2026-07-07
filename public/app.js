@@ -4,8 +4,30 @@
   const API = '/api';
   const VEHICLE_NUMBER_PATTERN = '[A-Za-z]{2}[0-9]{1,2}[A-Za-z]{1,3}[0-9]{4}|[0-9]{2}[Bb][Hh][0-9]{4}[A-Za-z]{1,2}';
   const VEHICLE_NUMBER_TITLE = 'Format: KA01AB1234 (or BH-series like 22BH1234AB)';
+  const MIN_PASSWORD_LEN = 6;
   const EDIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
   const DELETE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/><path d="M10 11v6M14 11v6"/></svg>';
+  const EYE_OPEN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a20.6 20.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+
+  function pwdFieldHtml(label, name, opts) {
+    opts = opts || {};
+    const attrs = [
+      'type="password"',
+      'name="' + name + '"',
+      opts.id ? 'id="' + opts.id + '"' : '',
+      opts.required ? 'required' : '',
+      opts.minlength ? 'minlength="' + opts.minlength + '"' : '',
+      opts.placeholder ? 'placeholder="' + esc(opts.placeholder) + '"' : '',
+      opts.title ? 'title="' + esc(opts.title) + '"' : '',
+      opts.autocomplete ? 'autocomplete="' + opts.autocomplete + '"' : '',
+    ].filter(Boolean).join(' ');
+    return (
+      '<div class="field"><label>' + esc(label) + '</label>' +
+      '<div class="pwd-wrap"><input ' + attrs + ' />' +
+      '<button type="button" class="pwd-toggle-btn" tabindex="-1" aria-label="Show password">' + EYE_OPEN_ICON + '</button></div></div>'
+    );
+  }
   const state = {
     token: localStorage.getItem('wc_token') || null,
     role: localStorage.getItem('wc_role') || null,
@@ -75,6 +97,16 @@
     localStorage.setItem('wc_role', role);
     localStorage.setItem('wc_user', JSON.stringify(user));
   }
+
+  document.body.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pwd-toggle-btn');
+    if (!btn) return;
+    const input = btn.previousElementSibling;
+    if (!input) return;
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.innerHTML = showing ? EYE_OPEN_ICON : EYE_OFF_ICON;
+  });
 
   // ---------------- Modal ----------------
   function openModal(title, bodyHtml, onMount) {
@@ -156,6 +188,7 @@
         '</section>' +
         '<footer class="landing-footer">' +
           '<p>WheelCare — built for community vehicle wash &amp; maintenance businesses.</p>' +
+          '<p>Developed by Praveen Kumar Athyala</p>' +
           '<button class="link-btn" id="admin-login-btn">Platform admin login</button>' +
         '</footer>' +
       '</div>';
@@ -192,7 +225,7 @@
             (errorMsg ? '<div class="auth-error">' + esc(errorMsg) + '</div>' : '') +
             '<form id="login-form">' +
               '<div class="field"><label>Username</label><input id="login-username" autocomplete="username" required /></div>' +
-              '<div class="field"><label>Password</label><input id="login-password" type="password" autocomplete="current-password" required /></div>' +
+              pwdFieldHtml('Password', 'password', { id: 'login-password', required: true, autocomplete: 'current-password' }) +
               '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
             '</form>' +
             '<div class="auth-links">' +
@@ -243,7 +276,7 @@
         '</select></div>' +
         '<div class="field"><label>Username</label><input name="username" required /></div>' +
         '<div class="field"><label>Phone (registered with your account)</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
-        '<div class="field"><label>New Password</label><input name="newPassword" type="password" required minlength="6" title="At least 6 characters" /></div>' +
+        pwdFieldHtml('New Password', 'newPassword', { required: true, minlength: 6, title: 'At least 6 characters' }) +
         '<button type="submit" class="btn btn-primary btn-block">Reset Password</button>' +
       '</form>';
     const overlay = openModal('Forgot Password', html, (ov) => {
@@ -275,7 +308,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Choose Username</label><input name="username" required /></div>' +
-          '<div class="field"><label>Choose Password</label><input name="password" type="password" required minlength="6" title="At least 6 characters" /></div>' +
+          pwdFieldHtml('Choose Password', 'password', { required: true, minlength: 6, title: 'At least 6 characters' }) +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Submit Request</button>' +
       '</form>';
@@ -579,10 +612,8 @@
           '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
         '</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
-          '<div class="field"><label>Login Password</label><input name="password" type="password" required minlength="6" title="At least 6 characters" /></div>' +
-        '</div>' +
+        '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
+        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">The customer sets their own password via a link you send them after adding them.</p>' +
         '<div class="divider-label">First Vehicle (optional)</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
@@ -601,7 +632,7 @@
         const f = new FormData(e.target);
         const payload = {
           name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'),
-          username: f.get('username'), password: f.get('password'),
+          username: f.get('username'),
         };
         if (f.get('vtype') && f.get('vnumber') && f.get('vamount')) {
           payload.vehicle = { type: f.get('vtype'), number: f.get('vnumber'), model: f.get('vmodel'), planAmount: f.get('vamount') };
@@ -663,10 +694,8 @@
           '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(customer.phone) + '" /></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
         '</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(customer.username) + '" /></div>' +
-          '<div class="field"><label>New Password</label><input name="password" type="password" minlength="6" placeholder="Leave blank to keep" title="At least 6 characters" /></div>' +
-        '</div>' +
+        '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(customer.username) + '" /></div>' +
+        '<button type="button" class="btn btn-outline btn-block btn-sm" id="reset-pwd-btn" style="margin-bottom:16px;">Send Password Setup Link</button>' +
         '<div class="divider-label">Add a Vehicle (optional)</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
@@ -680,11 +709,18 @@
       '</form>';
 
     const overlay = openModal('Edit Customer', html, (ov) => {
+      ov.querySelector('#reset-pwd-btn').addEventListener('click', async () => {
+        try {
+          const result = await api('/client/customers/' + customer.id + '/reset-password', { method: 'POST' });
+          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
       ov.querySelector('#edit-customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
         const payload = { name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'), username: f.get('username') };
-        if (f.get('password')) payload.password = f.get('password');
         try {
           await api('/client/customers/' + customer.id, { method: 'PUT', body: JSON.stringify(payload) });
           if (f.get('vtype') && f.get('vnumber') && f.get('vamount')) {
@@ -1066,7 +1102,7 @@
           '</div>' +
           '<div class="form-grid">' +
             '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
-            '<div class="field"><label>Login Password</label><input name="password" type="password" required minlength="6" title="At least 6 characters" /></div>' +
+            pwdFieldHtml('Login Password', 'password', { required: true, minlength: 6, title: 'At least 6 characters' }) +
           '</div>' +
           '<button type="submit" class="btn btn-primary btn-block">Onboard Business</button>' +
         '</form>';
@@ -1115,7 +1151,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(client.username) + '" /></div>' +
-          '<div class="field"><label>New Password</label><input name="password" type="password" minlength="6" placeholder="Leave blank to keep" title="At least 6 characters" /></div>' +
+          pwdFieldHtml('New Password', 'password', { minlength: 6, placeholder: 'Leave blank to keep', title: 'At least 6 characters' }) +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
@@ -1152,5 +1188,65 @@
     }
   }
 
-  render();
+  // ================= SET PASSWORD (public, via WhatsApp/SMS link) =================
+  function renderSetPassword(token) {
+    $app.innerHTML =
+      '<div class="auth-screen premium-bg">' +
+        '<div class="auth-center">' +
+          '<div class="auth-badge-glow">🔑</div>' +
+          '<h1 class="auth-brand">Set Your <span class="grad-text">Password</span></h1>' +
+          '<p class="auth-tagline">Choose a password to activate your account.</p>' +
+          '<div class="glass-card auth-card-dark">' +
+            '<div class="auth-error hidden" id="setpwd-error"></div>' +
+            '<form id="set-password-form">' +
+              pwdFieldHtml('New Password', 'password', { required: true, minlength: 6, autocomplete: 'new-password' }) +
+              pwdFieldHtml('Confirm Password', 'confirm', { required: true, minlength: 6, autocomplete: 'new-password' }) +
+              '<button type="submit" class="btn btn-primary btn-block">Set Password &amp; Continue</button>' +
+            '</form>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('set-password-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const password = f.get('password');
+      const errorEl = document.getElementById('setpwd-error');
+      errorEl.classList.add('hidden');
+      if (password !== f.get('confirm')) {
+        errorEl.textContent = 'Passwords do not match';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+      try {
+        const result = await api('/set-password', { method: 'POST', body: JSON.stringify({ token, password }) });
+        location.hash = '';
+        state.view = 'login';
+        state.loginRole = 'customer';
+        render();
+        toast('Password set! Log in as ' + result.username + '.', 'success');
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.classList.remove('hidden');
+      }
+    });
+  }
+
+  function parseHash() {
+    const raw = location.hash.replace(/^#\/?/, '');
+    const [path, qs] = raw.split('?');
+    return { path, params: new URLSearchParams(qs || '') };
+  }
+
+  const initialHash = parseHash();
+  if (initialHash.path === 'set-password' && initialHash.params.get('token')) {
+    renderSetPassword(initialHash.params.get('token'));
+  } else {
+    if (initialHash.path === 'login') {
+      state.view = 'login';
+      const role = initialHash.params.get('role');
+      if (role && ROLE_LABELS[role]) state.loginRole = role;
+    }
+    render();
+  }
 })();

@@ -1,5 +1,5 @@
 const { readDB, writeDB, nextId } = require('../db');
-const { sanitizeClient, isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH } = require('../utils');
+const { sanitizeClient, isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword } = require('../utils');
 
 module.exports = function registerAdminRoutes(app, authenticate) {
   function clientStats(db, client) {
@@ -46,7 +46,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       businessName,
       ownerName,
       username,
-      password,
+      password: hashPassword(password),
       phone,
       area: area || '',
       active: true,
@@ -97,7 +97,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     client.username = username;
     client.phone = phone;
     client.area = area || '';
-    if (password) client.password = password;
+    if (password) client.password = hashPassword(password);
 
     writeDB(db);
     res.json({ client: clientStats(db, client) });
