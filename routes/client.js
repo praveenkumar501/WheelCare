@@ -1,6 +1,8 @@
 const { readDB, writeDB, nextId } = require('../db');
 const {
   getCurrentMonth,
+  monthFromDate,
+  computeVehicleDue,
   buildReminderMessage,
   buildWaLink,
   buildSmsLink,
@@ -8,6 +10,8 @@ const {
   isValidPassword,
   isValidVehicleType,
   isValidPlanAmount,
+  isValidVehicleNumber,
+  normalizeVehicleNumber,
   PAYMENT_METHODS,
   MIN_PASSWORD_LENGTH,
 } = require('../utils');
@@ -25,14 +29,14 @@ module.exports = function registerClientRoutes(app, authenticate) {
     return customer ? vehicle : null;
   }
 
-  function buildReminder(db, client, customer, vehicle, month) {
+  function buildReminder(client, customer, vehicle, due) {
     const message = buildReminderMessage({
       customerName: customer.name,
       businessName: client.businessName,
       vehicleType: vehicle.type,
       vehicleNumber: vehicle.number,
-      amount: vehicle.planAmount,
-      month,
+      amount: due.dueAmount,
+      dueMonths: due.dueMonths,
     });
     return {
       customerId: customer.id,
@@ -42,8 +46,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
       vehicleId: vehicle.id,
       vehicleType: vehicle.type,
       vehicleNumber: vehicle.number,
-      amount: vehicle.planAmount,
-      month,
+      amount: due.dueAmount,
+      monthsDue: due.dueMonths.length,
       message,
       waLink: buildWaLink(customer.phone, message),
       smsLink: buildSmsLink(customer.phone, message),
@@ -63,22 +67,25 @@ module.exports = function registerClientRoutes(app, authenticate) {
         const vehicles = db.vehicles
           .filter((v) => v.customerId === customer.id)
           .map((vehicle) => {
-            const paid = db.payments.some((p) => p.vehicleId === vehicle.id && p.month === month);
-            return { ...vehicle, paid };
+            const due = computeVehicleDue(vehicle, db.payments, month);
+            return { ...vehicle, paid: due.paid, monthsDue: due.dueMonths.length, dueAmount: due.dueAmount };
           });
         return { ...customer, password: undefined, vehicles };
       });
 
-    let totalCollected = 0;
+    const clientVehicleIds = new Set();
+    customers.forEach((c) => c.vehicles.forEach((v) => clientVehicleIds.add(v.id)));
+    const totalCollected = db.payments
+      .filter((p) => clientVehicleIds.has(p.vehicleId) && monthFromDate(p.date) === month)
+      .reduce((sum, p) => sum + p.amount, 0);
+
     let totalPending = 0;
     const pendingVehicles = [];
 
     for (const customer of customers) {
       for (const vehicle of customer.vehicles) {
-        if (vehicle.paid) {
-          totalCollected += vehicle.planAmount;
-        } else {
-          totalPending += vehicle.planAmount;
+        if (!vehicle.paid) {
+          totalPending += vehicle.dueAmount;
           pendingVehicles.push({
             customerId: customer.id,
             customerName: customer.name,
@@ -88,7 +95,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
             vehicleType: vehicle.type,
             vehicleNumber: vehicle.number,
             model: vehicle.model,
-            amount: vehicle.planAmount,
+            amount: vehicle.dueAmount,
+            monthsDue: vehicle.monthsDue,
           });
         }
       }
@@ -122,8 +130,11 @@ module.exports = function registerClientRoutes(app, authenticate) {
       if (!isValidVehicleType(vehicle.type)) {
         return res.status(400).json({ error: 'vehicle type must be Bike or Car' });
       }
-      if (!vehicle.number || !isValidPlanAmount(vehicle.planAmount)) {
-        return res.status(400).json({ error: 'vehicle number and a positive planAmount are required' });
+      if (!vehicle.number || !isValidVehicleNumber(vehicle.number)) {
+        return res.status(400).json({ error: 'vehicle number must be a valid registration number (e.g. KA01AB1234)' });
+      }
+      if (!isValidPlanAmount(vehicle.planAmount)) {
+        return res.status(400).json({ error: 'vehicle planAmount must be a positive number' });
       }
     }
 
@@ -150,7 +161,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
         id: nextId(db, 'vehicles', 'v'),
         customerId: customer.id,
         type: vehicle.type,
-        number: vehicle.number,
+        number: normalizeVehicleNumber(vehicle.number),
         model: vehicle.model || '',
         planAmount: Number(vehicle.planAmount),
         createdAt: new Date().toISOString(),
@@ -219,6 +230,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!isValidVehicleType(type)) {
       return res.status(400).json({ error: 'type must be Bike or Car' });
     }
+    if (!isValidVehicleNumber(number)) {
+      return res.status(400).json({ error: 'number must be a valid registration number (e.g. KA01AB1234)' });
+    }
     if (!isValidPlanAmount(planAmount)) {
       return res.status(400).json({ error: 'planAmount must be a positive number' });
     }
@@ -231,7 +245,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       id: nextId(db, 'vehicles', 'v'),
       customerId: customer.id,
       type,
-      number,
+      number: normalizeVehicleNumber(number),
       model: model || '',
       planAmount: Number(planAmount),
       createdAt: new Date().toISOString(),
@@ -250,6 +264,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!isValidVehicleType(type)) {
       return res.status(400).json({ error: 'type must be Bike or Car' });
     }
+    if (!isValidVehicleNumber(number)) {
+      return res.status(400).json({ error: 'number must be a valid registration number (e.g. KA01AB1234)' });
+    }
     if (!isValidPlanAmount(planAmount)) {
       return res.status(400).json({ error: 'planAmount must be a positive number' });
     }
@@ -259,7 +276,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
 
     vehicle.type = type;
-    vehicle.number = number;
+    vehicle.number = normalizeVehicleNumber(number);
     vehicle.model = model || '';
     vehicle.planAmount = Number(planAmount);
 
@@ -406,7 +423,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
     const customer = db.customers.find((c) => c.id === vehicle.customerId);
     const month = getCurrentMonth();
-    res.json({ reminder: buildReminder(db, client, customer, vehicle, month) });
+    const due = computeVehicleDue(vehicle, db.payments, month);
+    if (due.paid) return res.status(400).json({ error: 'This vehicle has no pending dues' });
+    res.json({ reminder: buildReminder(client, customer, vehicle, due) });
   });
 
   app.get('/api/client/reminders', authenticate('client'), (req, res) => {
@@ -420,8 +439,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
     for (const customer of customers) {
       const vehicles = db.vehicles.filter((v) => v.customerId === customer.id);
       for (const vehicle of vehicles) {
-        const paid = db.payments.some((p) => p.vehicleId === vehicle.id && p.month === month);
-        if (!paid) reminders.push(buildReminder(db, client, customer, vehicle, month));
+        const due = computeVehicleDue(vehicle, db.payments, month);
+        if (!due.paid) reminders.push(buildReminder(client, customer, vehicle, due));
       }
     }
 

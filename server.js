@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
-const { readDB } = require('./db');
-const { makeToken, sanitizeClient, sanitizeCustomer } = require('./utils');
+const { readDB, writeDB } = require('./db');
+const { makeToken, sanitizeClient, sanitizeCustomer, isValidPassword, MIN_PASSWORD_LENGTH } = require('./utils');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,6 +43,9 @@ app.post('/api/login', (req, res) => {
   } else if (role === 'client') {
     const client = db.clients.find((c) => c.username === username && c.password === password);
     if (client) {
+      if (client.active === false) {
+        return res.status(403).json({ error: 'This business account has been deactivated. Contact the platform admin.' });
+      }
       const token = makeToken();
       sessions.set(token, { role: 'client', id: client.id });
       return res.json({ token, role: 'client', user: sanitizeClient(client) });
@@ -50,6 +53,10 @@ app.post('/api/login', (req, res) => {
   } else if (role === 'customer') {
     const customer = db.customers.find((c) => c.username === username && c.password === password);
     if (customer) {
+      const parentClient = db.clients.find((c) => c.id === customer.clientId);
+      if (parentClient && parentClient.active === false) {
+        return res.status(403).json({ error: 'This business account is currently inactive. Please contact them directly.' });
+      }
       const token = makeToken();
       sessions.set(token, { role: 'customer', id: customer.id, clientId: customer.clientId });
       return res.json({ token, role: 'customer', user: sanitizeCustomer(customer) });
@@ -75,6 +82,7 @@ app.get('/api/me', authenticate(), (req, res) => {
 require('./routes/admin')(app, authenticate);
 require('./routes/client')(app, authenticate);
 require('./routes/customer')(app, authenticate);
+require('./routes/public')(app);
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

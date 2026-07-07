@@ -11,6 +11,40 @@ function formatMonthLabel(monthStr) {
   return date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 }
 
+function monthFromDate(isoDate) {
+  const d = new Date(isoDate);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function getMonthsBetween(startMonth, endMonth) {
+  const [sy, sm] = startMonth.split('-').map(Number);
+  const [ey, em] = endMonth.split('-').map(Number);
+  const months = [];
+  let y = sy;
+  let m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    months.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return months;
+}
+
+function computeVehicleDue(vehicle, payments, currentMonth) {
+  const startMonth = monthFromDate(vehicle.createdAt);
+  const months = getMonthsBetween(startMonth, currentMonth);
+  const paidMonths = new Set(payments.filter((p) => p.vehicleId === vehicle.id).map((p) => p.month));
+  const dueMonths = months.filter((m) => !paidMonths.has(m));
+  return {
+    paid: dueMonths.length === 0,
+    dueMonths,
+    dueAmount: dueMonths.length * vehicle.planAmount,
+  };
+}
+
 function normalizePhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   if (digits.length === 10) return `91${digits}`;
@@ -39,10 +73,24 @@ function isValidPlanAmount(amount) {
   return Number.isFinite(n) && n > 0;
 }
 
-function buildReminderMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, month }) {
+// Indian vehicle registration formats: standard (e.g. KA01AB1234) and BH-series (e.g. 22BH1234AB)
+const VEHICLE_NUMBER_REGEX = /^([A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}|[0-9]{2}BH[0-9]{4}[A-Z]{1,2})$/;
+
+function normalizeVehicleNumber(number) {
+  return String(number || '').toUpperCase().replace(/[\s-]/g, '');
+}
+
+function isValidVehicleNumber(number) {
+  return VEHICLE_NUMBER_REGEX.test(normalizeVehicleNumber(number));
+}
+
+function buildReminderMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, dueMonths }) {
+  const period = dueMonths.length === 1
+    ? `for ${formatMonthLabel(dueMonths[0])}`
+    : `for ${dueMonths.length} months (${formatMonthLabel(dueMonths[0])} – ${formatMonthLabel(dueMonths[dueMonths.length - 1])})`;
   return (
     `Hi ${customerName}, this is a reminder from ${businessName}. ` +
-    `Your ${vehicleType} (${vehicleNumber}) wash payment of ₹${amount} for ${formatMonthLabel(month)} is due. ` +
+    `Your ${vehicleType} (${vehicleNumber}) wash payment of ₹${amount} ${period} is due. ` +
     `Please pay at your earliest convenience. Thank you!`
   );
 }
@@ -73,6 +121,9 @@ function sanitizeCustomer(customer) {
 module.exports = {
   getCurrentMonth,
   formatMonthLabel,
+  monthFromDate,
+  getMonthsBetween,
+  computeVehicleDue,
   normalizePhone,
   buildReminderMessage,
   buildWaLink,
@@ -87,4 +138,6 @@ module.exports = {
   isValidPassword,
   isValidVehicleType,
   isValidPlanAmount,
+  isValidVehicleNumber,
+  normalizeVehicleNumber,
 };

@@ -1,8 +1,10 @@
 {
   "superadmin": {
     "username": "admin",
-    "password": "admin123"
+    "password": "admin123",
+    "phone": "9999999999"
   },
+  "clientRequests": [],
   "clients": [
     {
       "id": "c1",
@@ -12,6 +14,7 @@
       "password": "praveen123",
       "phone": "9876543210",
       "area": "Sunrise Residency, Block A",
+      "active": true,
       "createdAt": "2026-04-01T09:00:00.000Z"
     },
     {
@@ -22,6 +25,7 @@
       "password": "ramesh123",
       "phone": "9123456780",
       "area": "Green Meadows Apartments",
+      "active": true,
       "createdAt": "2026-05-10T09:00:00.000Z"
     }
   ],
@@ -46,6 +50,9 @@
     { "id": "s3", "clientId": "c2", "name": "Vijay Kumar", "phone": "9922334455", "createdAt": "2026-05-10T09:30:00.000Z" }
   ],
   "payments": [
+    { "id": "p16", "vehicleId": "v1", "month": "2026-04", "amount": 300, "method": "Cash", "date": "2026-04-03T11:00:00.000Z" },
+    { "id": "p17", "vehicleId": "v3", "month": "2026-04", "amount": 300, "method": "UPI", "date": "2026-04-04T11:00:00.000Z" },
+    { "id": "p18", "vehicleId": "v5", "month": "2026-04", "amount": 300, "method": "Cash", "date": "2026-04-02T11:00:00.000Z" },
     { "id": "p1", "vehicleId": "v1", "month": "2026-05", "amount": 300, "method": "Cash", "date": "2026-05-03T11:00:00.000Z" },
     { "id": "p2", "vehicleId": "v1", "month": "2026-06", "amount": 300, "method": "UPI", "date": "2026-06-02T11:00:00.000Z" },
     { "id": "p3", "vehicleId": "v1", "month": "2026-07", "amount": 300, "method": "UPI", "date": "2026-07-02T11:00:00.000Z" },

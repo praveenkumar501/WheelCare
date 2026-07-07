@@ -49,12 +49,28 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       password,
       phone,
       area: area || '',
+      active: true,
       createdAt: new Date().toISOString(),
     };
     db.clients.push(client);
     writeDB(db);
 
     res.status(201).json({ client: clientStats(db, client) });
+  });
+
+  app.post('/api/admin/clients/:id/active', authenticate('superadmin'), (req, res) => {
+    const { active } = req.body || {};
+    if (typeof active !== 'boolean') {
+      return res.status(400).json({ error: 'active must be true or false' });
+    }
+
+    const db = readDB();
+    const client = db.clients.find((c) => c.id === req.params.id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    client.active = active;
+    writeDB(db);
+    res.json({ client: clientStats(db, client) });
   });
 
   app.put('/api/admin/clients/:id', authenticate('superadmin'), (req, res) => {
@@ -101,6 +117,50 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     db.staff = db.staff.filter((s) => s.clientId !== client.id);
     db.clients = db.clients.filter((c) => c.id !== client.id);
 
+    writeDB(db);
+    res.json({ ok: true });
+  });
+
+  // ---------- Business registration requests ----------
+  app.get('/api/admin/client-requests', authenticate('superadmin'), (req, res) => {
+    const db = readDB();
+    const requests = db.clientRequests
+      .filter((r) => r.status === 'pending')
+      .map((r) => ({ ...r, password: undefined }));
+    res.json({ requests });
+  });
+
+  app.post('/api/admin/client-requests/:id/approve', authenticate('superadmin'), (req, res) => {
+    const db = readDB();
+    const request = db.clientRequests.find((r) => r.id === req.params.id && r.status === 'pending');
+    if (!request) return res.status(404).json({ error: 'Request not found' });
+    if (db.clients.some((c) => c.username === request.username)) {
+      return res.status(409).json({ error: 'Username already taken by an existing business' });
+    }
+
+    const client = {
+      id: nextId(db, 'clients', 'c'),
+      businessName: request.businessName,
+      ownerName: request.ownerName,
+      username: request.username,
+      password: request.password,
+      phone: request.phone,
+      area: request.area,
+      active: true,
+      createdAt: new Date().toISOString(),
+    };
+    db.clients.push(client);
+    request.status = 'approved';
+    writeDB(db);
+    res.json({ client: clientStats(db, client) });
+  });
+
+  app.post('/api/admin/client-requests/:id/reject', authenticate('superadmin'), (req, res) => {
+    const db = readDB();
+    const request = db.clientRequests.find((r) => r.id === req.params.id && r.status === 'pending');
+    if (!request) return res.status(404).json({ error: 'Request not found' });
+
+    request.status = 'rejected';
     writeDB(db);
     res.json({ ok: true });
   });

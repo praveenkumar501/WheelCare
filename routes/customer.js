@@ -1,5 +1,5 @@
 const { readDB } = require('../db');
-const { getCurrentMonth, buildWaLink } = require('../utils');
+const { getCurrentMonth, computeVehicleDue, buildWaLink } = require('../utils');
 
 module.exports = function registerCustomerRoutes(app, authenticate) {
   app.get('/api/customer/data', authenticate('customer'), (req, res) => {
@@ -13,8 +13,8 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
     const vehicles = db.vehicles
       .filter((v) => v.customerId === customer.id)
       .map((vehicle) => {
-        const paid = db.payments.some((p) => p.vehicleId === vehicle.id && p.month === month);
-        return { ...vehicle, paid };
+        const due = computeVehicleDue(vehicle, db.payments, month);
+        return { ...vehicle, paid: due.paid, monthsDue: due.dueMonths.length, dueAmount: due.dueAmount };
       });
 
     const vehicleIds = new Set(vehicles.map((v) => v.id));
@@ -27,6 +27,7 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const anyDue = vehicles.some((v) => !v.paid);
+    const totalDue = vehicles.reduce((sum, v) => sum + v.dueAmount, 0);
     const contactMessage = `Hi, I'm ${customer.name} (${customer.flat}). I have a question about my vehicle wash service.`;
 
     res.json({
@@ -35,6 +36,7 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
       month,
       vehicles,
       anyDue,
+      totalDue,
       paymentHistory,
       contactWaLink: buildWaLink(client.phone, contactMessage),
     });

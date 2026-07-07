@@ -79,7 +79,6 @@ a { color: inherit; text-decoration: none; }
 .btn-outline { background: #fff; color: var(--navy); border: 1.5px solid var(--border); }
 .btn-outline:hover { border-color: var(--orange); color: var(--orange); }
 .btn-ghost { background: transparent; color: var(--text-muted); padding: 8px 12px; }
-.btn-danger-ghost { background: var(--red-light); color: var(--red); padding: 8px 12px; font-size: 13px; }
 .btn-sm { padding: 8px 12px; font-size: 13px; border-radius: 8px; }
 .btn-block { width: 100%; }
 .btn:disabled { opacity: 0.55; pointer-events: none; }
@@ -155,6 +154,12 @@ a { color: inherit; text-decoration: none; }
   outline: none;
 }
 .field input:focus, .field select:focus { border-color: var(--orange); background: #fff; }
+
+.auth-links {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 14px; flex-wrap: wrap; gap: 8px;
+}
+.auth-links .link-btn { font-size: 12.5px; }
 
 .auth-hint {
   text-align: center;
@@ -343,14 +348,19 @@ a { color: inherit; text-decoration: none; }
 .vehicle-row .vr-sub { font-size: 11.5px; color: var(--text-muted); }
 .vehicle-row .vr-right { display: flex; align-items: center; gap: 8px; }
 .vehicle-row .vr-amount { font-weight: 700; font-size: 13.5px; }
-.vr-actions { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+.vr-actions { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
 
-.icon-text-btn {
-  background: none; border: none; padding: 4px; font-size: 14px;
-  color: var(--text-muted); border-radius: 6px; line-height: 1;
+.icon-action-btn {
+  width: 32px; height: 32px; border-radius: 10px; border: none;
+  display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  background: var(--bg); color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.icon-text-btn:hover { color: var(--orange); }
-.icon-text-btn.danger:hover { color: var(--red); }
+.icon-action-btn svg { width: 15px; height: 15px; }
+.icon-action-btn:hover { background: var(--orange-light); color: var(--orange-dark); }
+.icon-action-btn.danger:hover { background: var(--red-light); color: var(--red); }
+.icon-action-btn.sm { width: 26px; height: 26px; border-radius: 8px; }
+.icon-action-btn.sm svg { width: 13px; height: 13px; }
 
 /* ---------- Chips / badges ---------- */
 .chip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }

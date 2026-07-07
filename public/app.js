@@ -2,6 +2,10 @@
   'use strict';
 
   const API = '/api';
+  const VEHICLE_NUMBER_PATTERN = '[A-Za-z]{2}[0-9]{1,2}[A-Za-z]{1,3}[0-9]{4}|[0-9]{2}[Bb][Hh][0-9]{4}[A-Za-z]{1,2}';
+  const VEHICLE_NUMBER_TITLE = 'Format: KA01AB1234 (or BH-series like 22BH1234AB)';
+  const EDIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+  const DELETE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/><path d="M10 11v6M14 11v6"/></svg>';
   const state = {
     token: localStorage.getItem('wc_token') || null,
     role: localStorage.getItem('wc_role') || null,
@@ -12,6 +16,7 @@
     staff: null,
     payments: null,
     adminClients: null,
+    clientRequests: null,
   };
 
   const $app = document.getElementById('app');
@@ -119,6 +124,10 @@
             '<div class="field"><label>Password</label><input id="login-password" type="password" autocomplete="current-password" required /></div>' +
             '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
           '</form>' +
+          '<div class="auth-links">' +
+            '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
+            (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '') +
+          '</div>' +
           '<div class="auth-hint">' + ROLE_HINTS[state.loginRole] + '</div>' +
         '</div>' +
       '</div>';
@@ -142,6 +151,76 @@
       } catch (err) {
         renderLogin(err.message);
       }
+    });
+
+    document.getElementById('forgot-password-btn').addEventListener('click', openForgotPasswordModal);
+    const registerBtn = document.getElementById('register-business-btn');
+    if (registerBtn) registerBtn.addEventListener('click', openRegisterBusinessModal);
+  }
+
+  function openForgotPasswordModal() {
+    const html =
+      '<form id="forgot-password-form">' +
+        '<div class="field"><label>Role</label><select name="role">' +
+          Object.keys(ROLE_LABELS).map((r) => '<option value="' + r + '"' + (state.loginRole === r ? ' selected' : '') + '>' + ROLE_LABELS[r] + '</option>').join('') +
+        '</select></div>' +
+        '<div class="field"><label>Username</label><input name="username" required /></div>' +
+        '<div class="field"><label>Phone (registered with your account)</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
+        '<div class="field"><label>New Password</label><input name="newPassword" type="password" required minlength="6" title="At least 6 characters" /></div>' +
+        '<button type="submit" class="btn btn-primary btn-block">Reset Password</button>' +
+      '</form>';
+    const overlay = openModal('Forgot Password', html, (ov) => {
+      ov.querySelector('#forgot-password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ role: f.get('role'), username: f.get('username'), phone: f.get('phone'), newPassword: f.get('newPassword') }),
+          });
+          toast('Password reset. You can log in now.', 'success');
+          overlay.remove();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  function openRegisterBusinessModal() {
+    const html =
+      '<form id="register-business-form">' +
+        '<div class="field"><label>Business Name</label><input name="businessName" required /></div>' +
+        '<div class="field"><label>Owner Name</label><input name="ownerName" required /></div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
+          '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
+        '</div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Choose Username</label><input name="username" required /></div>' +
+          '<div class="field"><label>Choose Password</label><input name="password" type="password" required minlength="6" title="At least 6 characters" /></div>' +
+        '</div>' +
+        '<button type="submit" class="btn btn-primary btn-block">Submit Request</button>' +
+      '</form>';
+    const overlay = openModal('Register Your Business', html, (ov) => {
+      ov.querySelector('#register-business-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/client-requests', {
+            method: 'POST',
+            body: JSON.stringify({
+              businessName: f.get('businessName'), ownerName: f.get('ownerName'),
+              phone: f.get('phone'), area: f.get('area'),
+              username: f.get('username'), password: f.get('password'),
+            }),
+          });
+          toast('Request submitted! We’ll notify you once approved.', 'success');
+          overlay.remove();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
     });
   }
 
@@ -251,10 +330,11 @@
   }
 
   function pendingItemHtml(v) {
+    const monthsBadge = v.monthsDue > 1 ? ' <span class="chip chip-amber">' + v.monthsDue + ' months</span>' : '';
     return (
       '<div class="pending-item">' +
         '<div class="pending-info"><div class="pi-name">' + esc(v.customerName) + '</div>' +
-        '<div class="pi-sub">' + esc(v.vehicleType) + ' · ' + esc(v.vehicleNumber) + ' · ' + esc(v.flat || '') + ' · ' + money(v.amount) + '</div></div>' +
+        '<div class="pi-sub">' + esc(v.vehicleType) + ' · ' + esc(v.vehicleNumber) + ' · ' + esc(v.flat || '') + ' · ' + money(v.amount) + monthsBadge + '</div></div>' +
         '<div class="pending-actions">' +
           '<button class="icon-round wa" title="WhatsApp reminder" data-remind-wa="' + v.vehicleId + '">💬</button>' +
           '<button class="icon-round sms" title="SMS reminder" data-remind-sms="' + v.vehicleId + '">✉️</button>' +
@@ -356,8 +436,8 @@
         '<div class="cc-meta">' + esc(c.flat || '') + ' · ' + esc(c.phone) + '</div></div>' +
         '<div class="cc-actions">' +
           '<button class="link-btn" data-add-vehicle="' + c.id + '" data-customer-name="' + esc(c.name) + '">+ Vehicle</button>' +
-          '<button class="icon-text-btn" title="Edit customer" data-edit-customer="' + c.id + '">✏️</button>' +
-          '<button class="icon-text-btn danger" title="Delete customer" data-delete-customer="' + c.id + '" data-customer-name="' + esc(c.name) + '">🗑️</button>' +
+          '<button class="icon-action-btn" title="Edit customer" data-edit-customer="' + c.id + '">' + EDIT_ICON + '</button>' +
+          '<button class="icon-action-btn danger" title="Delete customer" data-delete-customer="' + c.id + '" data-customer-name="' + esc(c.name) + '">' + DELETE_ICON + '</button>' +
         '</div></div>' +
         '<div class="cc-vehicles">' +
           (c.vehicles.length === 0
@@ -370,15 +450,17 @@
 
   function vehicleRowHtml(v) {
     const icon = v.type === 'Car' ? '🚗' : '🛵';
+    const amount = v.paid ? v.planAmount : v.dueAmount;
+    const statusLabel = v.paid ? 'Paid' : (v.monthsDue > 1 ? v.monthsDue + ' months due' : 'Due');
     return (
       '<div class="vehicle-row">' +
         '<div class="vr-info"><span class="vr-icon">' + icon + '</span>' +
         '<div><div class="vr-name">' + esc(v.model || v.type) + '</div><div class="vr-sub">' + esc(v.number) + '</div></div></div>' +
-        '<div class="vr-right"><span class="vr-amount">' + money(v.planAmount) + '</span>' +
-        '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + (v.paid ? 'Paid' : 'Due') + '</span>' +
+        '<div class="vr-right"><span class="vr-amount">' + money(amount) + '</span>' +
+        '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + statusLabel + '</span>' +
         '<div class="vr-actions">' +
-          '<button class="icon-text-btn" title="Edit vehicle" data-edit-vehicle="' + v.id + '">✏️</button>' +
-          '<button class="icon-text-btn danger" title="Delete vehicle" data-delete-vehicle="' + v.id + '" data-vehicle-number="' + esc(v.number) + '">🗑️</button>' +
+          '<button class="icon-action-btn sm" title="Edit vehicle" data-edit-vehicle="' + v.id + '">' + EDIT_ICON + '</button>' +
+          '<button class="icon-action-btn sm danger" title="Delete vehicle" data-delete-vehicle="' + v.id + '" data-vehicle-number="' + esc(v.number) + '">' + DELETE_ICON + '</button>' +
         '</div></div>' +
       '</div>'
     );
@@ -399,7 +481,7 @@
         '<div class="divider-label">First Vehicle (optional)</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
-          '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" /></div>' +
+          '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
@@ -438,7 +520,7 @@
         '<div class="field"><label>For</label><input value="' + esc(customerName) + '" disabled /></div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="type" required><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
-          '<div class="field"><label>Reg. Number</label><input name="number" required placeholder="KA01AB1234" /></div>' +
+          '<div class="field"><label>Reg. Number</label><input name="number" required placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="model" placeholder="Honda Activa" /></div>' +
@@ -479,6 +561,15 @@
           '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(customer.username) + '" /></div>' +
           '<div class="field"><label>New Password</label><input name="password" type="password" minlength="6" placeholder="Leave blank to keep" title="At least 6 characters" /></div>' +
         '</div>' +
+        '<div class="divider-label">Add a Vehicle (optional)</div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
+          '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
+        '</div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="number" min="1" placeholder="300" /></div>' +
+        '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
 
@@ -490,6 +581,12 @@
         if (f.get('password')) payload.password = f.get('password');
         try {
           await api('/client/customers/' + customer.id, { method: 'PUT', body: JSON.stringify(payload) });
+          if (f.get('vtype') && f.get('vnumber') && f.get('vamount')) {
+            await api('/client/customers/' + customer.id + '/vehicles', {
+              method: 'POST',
+              body: JSON.stringify({ type: f.get('vtype'), number: f.get('vnumber'), model: f.get('vmodel'), planAmount: f.get('vamount') }),
+            });
+          }
           toast('Customer updated', 'success');
           overlay.remove();
           await loadClientData();
@@ -509,7 +606,7 @@
             '<option value="Bike"' + (vehicle.type === 'Bike' ? ' selected' : '') + '>Bike</option>' +
             '<option value="Car"' + (vehicle.type === 'Car' ? ' selected' : '') + '>Car</option>' +
           '</select></div>' +
-          '<div class="field"><label>Reg. Number</label><input name="number" required value="' + esc(vehicle.number) + '" /></div>' +
+          '<div class="field"><label>Reg. Number</label><input name="number" required value="' + esc(vehicle.number) + '" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="model" value="' + esc(vehicle.model || '') + '" /></div>' +
@@ -558,8 +655,8 @@
           : staff.map((s) =>
               '<div class="staff-row"><div><div class="sr-name">' + esc(s.name) + '</div><div class="sr-phone">' + esc(s.phone) + '</div></div>' +
               '<div class="cc-actions">' +
-                '<button class="icon-text-btn" title="Edit staff" data-edit-staff="' + s.id + '">✏️</button>' +
-                '<button class="btn btn-danger-ghost" data-remove-staff="' + s.id + '">Remove</button>' +
+                '<button class="icon-action-btn" title="Edit staff" data-edit-staff="' + s.id + '">' + EDIT_ICON + '</button>' +
+                '<button class="icon-action-btn danger" title="Remove staff" data-remove-staff="' + s.id + '">' + DELETE_ICON + '</button>' +
               '</div></div>'
             ).join('')) +
       '</div>';
@@ -719,19 +816,20 @@
     content.innerHTML =
       '<div class="status-banner ' + (d.anyDue ? 'due' : 'paid') + '">' +
         '<div class="sb-icon">' + (d.anyDue ? '⏰' : '✅') + '</div>' +
-        '<h2>' + (d.anyDue ? 'Payment Due' : 'All Paid Up!') + '</h2>' +
+        '<h2>' + (d.anyDue ? 'Payment Due: ' + money(d.totalDue) : 'All Paid Up!') + '</h2>' +
         '<p>' + (d.anyDue
-          ? 'You have pending vehicle wash payment(s) for ' + esc(monthLabel(d.month)) + '.'
+          ? 'You have pending vehicle wash payment(s) as of ' + esc(monthLabel(d.month)) + '.'
           : 'Your subscription is fully settled for ' + esc(monthLabel(d.month)) + '. Thank you!') + '</p>' +
       '</div>' +
       '<div class="section-header"><h3>My Vehicles</h3></div>' +
       '<div class="cards-grid">' + d.vehicles.map((v) => {
         const icon = v.type === 'Car' ? '🚗' : '🛵';
+        const statusLabel = v.paid ? 'Paid' : (v.monthsDue > 1 ? v.monthsDue + ' months due' : 'Due');
         return (
           '<div class="vehicle-card"><div class="vc-left"><div class="vc-icon">' + icon + '</div>' +
           '<div><div class="vc-name">' + esc(v.model || v.type) + '</div><div class="vc-sub">' + esc(v.number) + ' · ' + esc(v.type) + '</div></div></div>' +
-          '<div class="vc-right"><div class="vc-amount">' + money(v.planAmount) + '/mo</div>' +
-          '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + (v.paid ? 'Paid' : 'Due') + '</span></div></div>'
+          '<div class="vc-right"><div class="vc-amount">' + (v.paid ? money(v.planAmount) + '/mo' : money(v.dueAmount)) + '</div>' +
+          '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + statusLabel + '</span></div></div>'
         );
       }).join('') + '</div>' +
       '<button class="btn btn-navy btn-block" id="contact-btn" style="margin: 16px 0 6px;">💬 Message ' + esc(d.client.businessName) + ' on WhatsApp</button>' +
@@ -759,15 +857,16 @@
   async function renderAdminDashboard() {
     const content = document.getElementById('content');
     content.innerHTML = '<div class="loading-spinner">Loading…</div>';
-    let overview, clients;
+    let overview, clients, requests;
     try {
-      [overview, clients] = await Promise.all([api('/admin/overview'), api('/admin/clients')]);
+      [overview, clients, requests] = await Promise.all([api('/admin/overview'), api('/admin/clients'), api('/admin/client-requests')]);
     } catch (err) {
       toast(err.message, 'error');
       if (/unauthorized/i.test(err.message)) return logout();
       return;
     }
     state.adminClients = clients.clients;
+    state.clientRequests = requests.requests;
 
     content.innerHTML =
       '<div class="overview-row">' +
@@ -776,25 +875,78 @@
         '<div class="overview-card"><div class="ov-value">' + overview.totalVehicles + '</div><div class="ov-label">Vehicles</div></div>' +
         '<div class="overview-card"><div class="ov-value">' + money(overview.totalRevenue) + '</div><div class="ov-label">Total Revenue</div></div>' +
       '</div>' +
+      (state.clientRequests.length === 0 ? '' :
+        '<div class="section-header"><h3>Pending Requests<span class="count-badge">' + state.clientRequests.length + '</span></h3></div>' +
+        '<div class="cards-grid">' + state.clientRequests.map((r) =>
+          '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(r.businessName) + '</div>' +
+          '<div class="cc-meta">' + esc(r.ownerName) + ' · ' + esc(r.phone) + ' · ' + esc(r.area || '') + '</div></div></div>' +
+          '<div class="cc-vehicles" style="margin-top:12px; display:flex; gap:8px;">' +
+            '<button class="btn btn-primary btn-sm" data-approve-request="' + r.id + '" style="flex:1;">Approve</button>' +
+            '<button class="btn btn-outline btn-sm" data-reject-request="' + r.id + '" style="flex:1;">Reject</button>' +
+          '</div></div>'
+        ).join('') + '</div>') +
       '<div class="section-header"><h3>Client Businesses<span class="count-badge">' + state.adminClients.length + '</span></h3>' +
         '<button class="btn btn-primary btn-sm" id="add-client-btn">+ Add Business</button>' +
       '</div>' +
       (state.adminClients.length === 0
         ? '<div class="card"><div class="empty-state"><div class="empty-icon">🏢</div>No client businesses onboarded yet.</div></div>'
         : '<div class="cards-grid">' + state.adminClients.map((c) =>
-            '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(c.businessName) + '</div>' +
+            '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(c.businessName) +
+            ' <span class="chip ' + (c.active === false ? 'chip-due' : 'chip-paid') + '">' + (c.active === false ? 'Inactive' : 'Active') + '</span></div>' +
             '<div class="cc-meta">' + esc(c.ownerName) + ' · ' + esc(c.area || '') + '</div></div>' +
             '<div class="cc-actions">' +
-              '<button class="icon-text-btn" title="Edit business" data-edit-client="' + c.id + '">✏️</button>' +
-              '<button class="icon-text-btn danger" title="Delete business" data-delete-client="' + c.id + '" data-business-name="' + esc(c.businessName) + '">🗑️</button>' +
+              '<button class="icon-action-btn" title="Edit business" data-edit-client="' + c.id + '">' + EDIT_ICON + '</button>' +
+              '<button class="icon-action-btn danger" title="Delete business" data-delete-client="' + c.id + '" data-business-name="' + esc(c.businessName) + '">' + DELETE_ICON + '</button>' +
             '</div></div>' +
             '<div class="cc-vehicles">' +
               '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">👥</span><div class="vr-name">' + c.customerCount + ' customers</div></div>' +
               '<span class="vr-amount">' + c.vehicleCount + ' vehicles</span></div>' +
               '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">💰</span><div class="vr-name">Revenue collected</div></div>' +
               '<span class="vr-amount">' + money(c.revenue) + '</span></div>' +
-            '</div></div>'
+            '</div>' +
+            '<button class="btn btn-outline btn-sm btn-block" style="margin-top:10px;" data-toggle-active="' + c.id + '" data-currently-active="' + (c.active !== false) + '">' +
+              (c.active === false ? 'Activate Business' : 'Deactivate Business') +
+            '</button></div>'
           ).join('') + '</div>');
+
+    content.querySelectorAll('[data-approve-request]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await api('/admin/client-requests/' + btn.dataset.approveRequest + '/approve', { method: 'POST' });
+          toast('Business approved', 'success');
+          renderAdminDashboard();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+    content.querySelectorAll('[data-reject-request]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!window.confirm('Reject this business registration request?')) return;
+        try {
+          await api('/admin/client-requests/' + btn.dataset.rejectRequest + '/reject', { method: 'POST' });
+          toast('Request rejected', 'success');
+          renderAdminDashboard();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+    content.querySelectorAll('[data-toggle-active]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const currentlyActive = btn.dataset.currentlyActive === 'true';
+        try {
+          await api('/admin/clients/' + btn.dataset.toggleActive + '/active', {
+            method: 'POST',
+            body: JSON.stringify({ active: !currentlyActive }),
+          });
+          toast(currentlyActive ? 'Business deactivated' : 'Business activated', 'success');
+          renderAdminDashboard();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
 
     document.getElementById('add-client-btn').addEventListener('click', () => {
       const html =
