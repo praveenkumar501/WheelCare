@@ -162,6 +162,36 @@ module.exports = function registerClientRoutes(app, authenticate) {
     res.status(201).json({ customer: { ...customer, password: undefined }, vehicle: createdVehicle });
   });
 
+  app.put('/api/client/customers/:id', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const { name, phone, flat, username, password } = req.body || {};
+    if (!name || !phone || !username) {
+      return res.status(400).json({ error: 'name, phone and username are required' });
+    }
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({ error: 'phone must be a 10-digit number' });
+    }
+    if (password && !isValidPassword(password)) {
+      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+    }
+
+    const db = readDB();
+    const customer = requireOwnCustomer(db, clientId, req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+    if (db.customers.some((c) => c.username === username && c.id !== customer.id)) {
+      return res.status(409).json({ error: 'Username already taken' });
+    }
+
+    customer.name = name;
+    customer.phone = phone;
+    customer.flat = flat || '';
+    customer.username = username;
+    if (password) customer.password = password;
+
+    writeDB(db);
+    res.json({ customer: { ...customer, password: undefined } });
+  });
+
   app.delete('/api/client/customers/:id', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
     const db = readDB();
@@ -211,6 +241,32 @@ module.exports = function registerClientRoutes(app, authenticate) {
     res.status(201).json({ vehicle });
   });
 
+  app.put('/api/client/vehicles/:id', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const { type, number, model, planAmount } = req.body || {};
+    if (!type || !number || !planAmount) {
+      return res.status(400).json({ error: 'type, number and planAmount are required' });
+    }
+    if (!isValidVehicleType(type)) {
+      return res.status(400).json({ error: 'type must be Bike or Car' });
+    }
+    if (!isValidPlanAmount(planAmount)) {
+      return res.status(400).json({ error: 'planAmount must be a positive number' });
+    }
+
+    const db = readDB();
+    const vehicle = requireOwnVehicle(db, clientId, req.params.id);
+    if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+
+    vehicle.type = type;
+    vehicle.number = number;
+    vehicle.model = model || '';
+    vehicle.planAmount = Number(planAmount);
+
+    writeDB(db);
+    res.json({ vehicle });
+  });
+
   app.delete('/api/client/vehicles/:id', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
     const db = readDB();
@@ -246,6 +302,22 @@ module.exports = function registerClientRoutes(app, authenticate) {
     db.staff.push(member);
     writeDB(db);
     res.status(201).json({ staff: member });
+  });
+
+  app.put('/api/client/staff/:id', authenticate('client'), (req, res) => {
+    const { name, phone } = req.body || {};
+    if (!name || !phone) return res.status(400).json({ error: 'name and phone are required' });
+    if (!isValidPhone(phone)) return res.status(400).json({ error: 'phone must be a 10-digit number' });
+
+    const db = readDB();
+    const member = db.staff.find((s) => s.id === req.params.id && s.clientId === req.session.id);
+    if (!member) return res.status(404).json({ error: 'Staff member not found' });
+
+    member.name = name;
+    member.phone = phone;
+
+    writeDB(db);
+    res.json({ staff: member });
   });
 
   app.delete('/api/client/staff/:id', authenticate('client'), (req, res) => {

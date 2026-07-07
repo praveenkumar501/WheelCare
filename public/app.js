@@ -303,6 +303,50 @@
     content.querySelectorAll('[data-add-vehicle]').forEach((btn) => {
       btn.addEventListener('click', () => openAddVehicleModal(btn.dataset.addVehicle, btn.dataset.customerName));
     });
+    content.querySelectorAll('[data-edit-customer]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const customer = state.data.customers.find((c) => c.id === btn.dataset.editCustomer);
+        if (customer) openEditCustomerModal(customer);
+      });
+    });
+    content.querySelectorAll('[data-delete-customer]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteCustomer(btn.dataset.deleteCustomer, btn.dataset.customerName));
+    });
+    content.querySelectorAll('[data-edit-vehicle]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        for (const customer of state.data.customers) {
+          const vehicle = customer.vehicles.find((v) => v.id === btn.dataset.editVehicle);
+          if (vehicle) return openEditVehicleModal(vehicle);
+        }
+      });
+    });
+    content.querySelectorAll('[data-delete-vehicle]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteVehicle(btn.dataset.deleteVehicle, btn.dataset.vehicleNumber));
+    });
+  }
+
+  async function deleteCustomer(customerId, customerName) {
+    if (!window.confirm('Remove ' + customerName + ' and all their vehicles? This cannot be undone.')) return;
+    try {
+      await api('/client/customers/' + customerId, { method: 'DELETE' });
+      toast('Customer removed', 'success');
+      await loadClientData();
+      renderClientCustomers();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function deleteVehicle(vehicleId, vehicleNumber) {
+    if (!window.confirm('Remove vehicle ' + vehicleNumber + '? This cannot be undone.')) return;
+    try {
+      await api('/client/vehicles/' + vehicleId, { method: 'DELETE' });
+      toast('Vehicle removed', 'success');
+      await loadClientData();
+      renderClientCustomers();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
   }
 
   function customerCardHtml(c) {
@@ -310,7 +354,11 @@
       '<div class="card customer-card">' +
         '<div class="cc-top"><div><div class="cc-name">' + esc(c.name) + '</div>' +
         '<div class="cc-meta">' + esc(c.flat || '') + ' · ' + esc(c.phone) + '</div></div>' +
-        '<button class="link-btn" data-add-vehicle="' + c.id + '" data-customer-name="' + esc(c.name) + '">+ Vehicle</button></div>' +
+        '<div class="cc-actions">' +
+          '<button class="link-btn" data-add-vehicle="' + c.id + '" data-customer-name="' + esc(c.name) + '">+ Vehicle</button>' +
+          '<button class="icon-text-btn" title="Edit customer" data-edit-customer="' + c.id + '">✏️</button>' +
+          '<button class="icon-text-btn danger" title="Delete customer" data-delete-customer="' + c.id + '" data-customer-name="' + esc(c.name) + '">🗑️</button>' +
+        '</div></div>' +
         '<div class="cc-vehicles">' +
           (c.vehicles.length === 0
             ? '<div style="font-size:12.5px;color:var(--text-muted)">No vehicles added yet</div>'
@@ -327,7 +375,11 @@
         '<div class="vr-info"><span class="vr-icon">' + icon + '</span>' +
         '<div><div class="vr-name">' + esc(v.model || v.type) + '</div><div class="vr-sub">' + esc(v.number) + '</div></div></div>' +
         '<div class="vr-right"><span class="vr-amount">' + money(v.planAmount) + '</span>' +
-        '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + (v.paid ? 'Paid' : 'Due') + '</span></div>' +
+        '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + (v.paid ? 'Paid' : 'Due') + '</span>' +
+        '<div class="vr-actions">' +
+          '<button class="icon-text-btn" title="Edit vehicle" data-edit-vehicle="' + v.id + '">✏️</button>' +
+          '<button class="icon-text-btn danger" title="Delete vehicle" data-delete-vehicle="' + v.id + '" data-vehicle-number="' + esc(v.number) + '">🗑️</button>' +
+        '</div></div>' +
       '</div>'
     );
   }
@@ -415,6 +467,77 @@
     });
   }
 
+  function openEditCustomerModal(customer) {
+    const html =
+      '<form id="edit-customer-form">' +
+        '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(customer.name) + '" /></div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(customer.phone) + '" /></div>' +
+          '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
+        '</div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(customer.username) + '" /></div>' +
+          '<div class="field"><label>New Password</label><input name="password" type="password" minlength="6" placeholder="Leave blank to keep" title="At least 6 characters" /></div>' +
+        '</div>' +
+        '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
+      '</form>';
+
+    const overlay = openModal('Edit Customer', html, (ov) => {
+      ov.querySelector('#edit-customer-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        const payload = { name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'), username: f.get('username') };
+        if (f.get('password')) payload.password = f.get('password');
+        try {
+          await api('/client/customers/' + customer.id, { method: 'PUT', body: JSON.stringify(payload) });
+          toast('Customer updated', 'success');
+          overlay.remove();
+          await loadClientData();
+          renderClientTab();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  function openEditVehicleModal(vehicle) {
+    const html =
+      '<form id="edit-vehicle-form">' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Type</label><select name="type" required>' +
+            '<option value="Bike"' + (vehicle.type === 'Bike' ? ' selected' : '') + '>Bike</option>' +
+            '<option value="Car"' + (vehicle.type === 'Car' ? ' selected' : '') + '>Car</option>' +
+          '</select></div>' +
+          '<div class="field"><label>Reg. Number</label><input name="number" required value="' + esc(vehicle.number) + '" /></div>' +
+        '</div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Model</label><input name="model" value="' + esc(vehicle.model || '') + '" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="planAmount" type="number" min="1" required value="' + vehicle.planAmount + '" /></div>' +
+        '</div>' +
+        '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
+      '</form>';
+
+    const overlay = openModal('Edit Vehicle', html, (ov) => {
+      ov.querySelector('#edit-vehicle-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/client/vehicles/' + vehicle.id, {
+            method: 'PUT',
+            body: JSON.stringify({ type: f.get('type'), number: f.get('number'), model: f.get('model'), planAmount: f.get('planAmount') }),
+          });
+          toast('Vehicle updated', 'success');
+          overlay.remove();
+          await loadClientData();
+          renderClientTab();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
   async function renderClientStaff() {
     const content = document.getElementById('content');
     content.innerHTML = '<div class="loading-spinner">Loading…</div>';
@@ -434,7 +557,10 @@
           ? '<div class="empty-state"><div class="empty-icon">🧰</div>No staff members yet.</div>'
           : staff.map((s) =>
               '<div class="staff-row"><div><div class="sr-name">' + esc(s.name) + '</div><div class="sr-phone">' + esc(s.phone) + '</div></div>' +
-              '<button class="btn btn-danger-ghost" data-remove-staff="' + s.id + '">Remove</button></div>'
+              '<div class="cc-actions">' +
+                '<button class="icon-text-btn" title="Edit staff" data-edit-staff="' + s.id + '">✏️</button>' +
+                '<button class="btn btn-danger-ghost" data-remove-staff="' + s.id + '">Remove</button>' +
+              '</div></div>'
             ).join('')) +
       '</div>';
 
@@ -470,6 +596,33 @@
         } catch (err) {
           toast(err.message, 'error');
         }
+      });
+    });
+
+    content.querySelectorAll('[data-edit-staff]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const member = staff.find((s) => s.id === btn.dataset.editStaff);
+        if (!member) return;
+        const html =
+          '<form id="edit-staff-form">' +
+            '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(member.name) + '" /></div>' +
+            '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(member.phone) + '" /></div>' +
+            '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
+          '</form>';
+        const overlay = openModal('Edit Staff Member', html, (ov) => {
+          ov.querySelector('#edit-staff-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.target);
+            try {
+              await api('/client/staff/' + member.id, { method: 'PUT', body: JSON.stringify({ name: f.get('name'), phone: f.get('phone') }) });
+              toast('Staff member updated', 'success');
+              overlay.remove();
+              renderClientStaff();
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+          });
+        });
       });
     });
   }
@@ -630,7 +783,11 @@
         ? '<div class="card"><div class="empty-state"><div class="empty-icon">🏢</div>No client businesses onboarded yet.</div></div>'
         : '<div class="cards-grid">' + state.adminClients.map((c) =>
             '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(c.businessName) + '</div>' +
-            '<div class="cc-meta">' + esc(c.ownerName) + ' · ' + esc(c.area || '') + '</div></div></div>' +
+            '<div class="cc-meta">' + esc(c.ownerName) + ' · ' + esc(c.area || '') + '</div></div>' +
+            '<div class="cc-actions">' +
+              '<button class="icon-text-btn" title="Edit business" data-edit-client="' + c.id + '">✏️</button>' +
+              '<button class="icon-text-btn danger" title="Delete business" data-delete-client="' + c.id + '" data-business-name="' + esc(c.businessName) + '">🗑️</button>' +
+            '</div></div>' +
             '<div class="cc-vehicles">' +
               '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">👥</span><div class="vr-name">' + c.customerCount + ' customers</div></div>' +
               '<span class="vr-amount">' + c.vehicleCount + ' vehicles</span></div>' +
@@ -676,6 +833,64 @@
         });
       });
     });
+
+    content.querySelectorAll('[data-edit-client]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const client = state.adminClients.find((c) => c.id === btn.dataset.editClient);
+        if (client) openEditClientModal(client);
+      });
+    });
+    content.querySelectorAll('[data-delete-client]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteClient(btn.dataset.deleteClient, btn.dataset.businessName));
+    });
+  }
+
+  function openEditClientModal(client) {
+    const html =
+      '<form id="edit-client-form">' +
+        '<div class="field"><label>Business Name</label><input name="businessName" required value="' + esc(client.businessName) + '" /></div>' +
+        '<div class="field"><label>Owner Name</label><input name="ownerName" required value="' + esc(client.ownerName) + '" /></div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(client.phone) + '" /></div>' +
+          '<div class="field"><label>Area</label><input name="area" value="' + esc(client.area || '') + '" /></div>' +
+        '</div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(client.username) + '" /></div>' +
+          '<div class="field"><label>New Password</label><input name="password" type="password" minlength="6" placeholder="Leave blank to keep" title="At least 6 characters" /></div>' +
+        '</div>' +
+        '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
+      '</form>';
+
+    const overlay = openModal('Edit Client Business', html, (ov) => {
+      ov.querySelector('#edit-client-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        const payload = {
+          businessName: f.get('businessName'), ownerName: f.get('ownerName'),
+          phone: f.get('phone'), area: f.get('area'), username: f.get('username'),
+        };
+        if (f.get('password')) payload.password = f.get('password');
+        try {
+          await api('/admin/clients/' + client.id, { method: 'PUT', body: JSON.stringify(payload) });
+          toast('Business updated', 'success');
+          overlay.remove();
+          renderAdminDashboard();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  async function deleteClient(clientId, businessName) {
+    if (!window.confirm('Delete ' + businessName + ' and all its customers, vehicles and payment history? This cannot be undone.')) return;
+    try {
+      await api('/admin/clients/' + clientId, { method: 'DELETE' });
+      toast('Business removed', 'success');
+      renderAdminDashboard();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
   }
 
   render();

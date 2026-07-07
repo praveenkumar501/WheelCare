@@ -328,10 +328,11 @@ a { color: inherit; text-decoration: none; }
 .icon-round.wa { background: var(--green-light); color: var(--green); }
 .icon-round.sms { background: var(--aqua-light); color: #0e8a7d; }
 
-.customer-card .cc-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.customer-card .cc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .customer-card .cc-name { font-weight: 700; font-size: 15.5px; }
 .customer-card .cc-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
 .customer-card .cc-vehicles { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.cc-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .vehicle-row {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--bg); border-radius: 12px; padding: 10px 12px;
@@ -342,6 +343,14 @@ a { color: inherit; text-decoration: none; }
 .vehicle-row .vr-sub { font-size: 11.5px; color: var(--text-muted); }
 .vehicle-row .vr-right { display: flex; align-items: center; gap: 8px; }
 .vehicle-row .vr-amount { font-weight: 700; font-size: 13.5px; }
+.vr-actions { display: flex; align-items: center; gap: 2px; margin-left: 4px; }
+
+.icon-text-btn {
+  background: none; border: none; padding: 4px; font-size: 14px;
+  color: var(--text-muted); border-radius: 6px; line-height: 1;
+}
+.icon-text-btn:hover { color: var(--orange); }
+.icon-text-btn.danger:hover { color: var(--red); }
 
 /* ---------- Chips / badges ---------- */
 .chip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
