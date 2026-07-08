@@ -1,7 +1,6 @@
 {
   "superadmin": {
     "username": "admin",
-    "password": "$2b$10$Px8oszf3vNqPrW02z/l6ReBo015AYYg9hJIZDjZ4WMnjF2VfFJjWK",
     "phone": "9999999999"
   },
   "clientRequests": [],
@@ -11,7 +10,6 @@
       "businessName": "Praveen's Vehicle Care",
       "ownerName": "Praveen Kumar",
       "username": "praveen",
-      "password": "$2b$10$768IgSuJ0kbo7Y2KbLizG.L0Grs6/gtm4.tBA7/8I4q3/fjuzNEZO",
       "phone": "9876543210",
       "area": "Sunrise Residency, Block A",
       "active": true,
@@ -22,7 +20,6 @@
       "businessName": "Shine Auto Care",
       "ownerName": "Ramesh Gowda",
       "username": "ramesh",
-      "password": "$2b$10$A5sKjlDTzclm0hJH5Lkm/up501gSEbqeUoDhJ6uYmyOHSbsAHPQZW",
       "phone": "9123456780",
       "area": "Green Meadows Apartments",
       "active": true,
@@ -30,11 +27,11 @@
     }
   ],
   "customers": [
-    { "id": "cu1", "clientId": "c1", "name": "Anita Sharma", "phone": "9812345671", "flat": "A-101", "username": "anita", "password": "$2b$10$/M4MPUG/KZXlCm/3Nh26eu7SRuOryc.ybamnoAxC12zKbM0jdl/5C", "createdAt": "2026-04-02T10:00:00.000Z" },
-    { "id": "cu2", "clientId": "c1", "name": "Rohit Verma", "phone": "9812345672", "flat": "A-204", "username": "rohit", "password": "$2b$10$0dMmRqj0kTvTM9yoVAvBb.2fRk4E5tWKwCGKtTHJBUT/IzPBJ.Bby", "createdAt": "2026-04-03T10:00:00.000Z" },
-    { "id": "cu3", "clientId": "c1", "name": "Kavya Reddy", "phone": "9812345673", "flat": "B-305", "username": "kavya", "password": "$2b$10$qq1F3n9qI0I9YPLyP/AfvezvikpIyp/YFH8yJ.zRVdNuv08LIZtKe", "createdAt": "2026-04-05T10:00:00.000Z" },
-    { "id": "cu4", "clientId": "c1", "name": "Suresh Nair", "phone": "9812345674", "flat": "B-102", "username": "suresh", "password": "$2b$10$VLGvxI.7iQm3FF0WgjnT7eQZaw1vC470RD71FWghLONtLJRNTRb12", "createdAt": "2026-04-07T10:00:00.000Z" },
-    { "id": "cu5", "clientId": "c2", "name": "Meera Iyer", "phone": "9812345675", "flat": "C-201", "username": "meera", "password": "$2b$10$M/hckwqB7jFGBqFx4jnwheiwjyFvKocEfIBDHHM9tWRz5kly4.9t.", "createdAt": "2026-05-11T10:00:00.000Z" }
+    { "id": "cu1", "clientId": "c1", "name": "Anita Sharma", "phone": "9812345671", "flat": "A-101", "username": "anita", "createdAt": "2026-04-02T10:00:00.000Z" },
+    { "id": "cu2", "clientId": "c1", "name": "Rohit Verma", "phone": "9812345672", "flat": "A-204", "username": "rohit", "createdAt": "2026-04-03T10:00:00.000Z" },
+    { "id": "cu3", "clientId": "c1", "name": "Kavya Reddy", "phone": "9812345673", "flat": "B-305", "username": "kavya", "createdAt": "2026-04-05T10:00:00.000Z" },
+    { "id": "cu4", "clientId": "c1", "name": "Suresh Nair", "phone": "9812345674", "flat": "B-102", "username": "suresh", "createdAt": "2026-04-07T10:00:00.000Z" },
+    { "id": "cu5", "clientId": "c2", "name": "Meera Iyer", "phone": "9812345675", "flat": "C-201", "username": "meera", "createdAt": "2026-05-11T10:00:00.000Z" }
   ],
   "vehicles": [
     { "id": "v1", "customerId": "cu1", "type": "Bike", "number": "KA01AB1234", "model": "Honda Activa", "planAmount": 300, "createdAt": "2026-04-02T10:05:00.000Z" },

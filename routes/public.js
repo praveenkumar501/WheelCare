@@ -1,18 +1,15 @@
 const { readDB, writeDB, nextId } = require('../db');
-const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword } = require('../utils');
+const { isValidPhone } = require('../utils');
 
 module.exports = function registerPublicRoutes(app) {
   // ---------- Business registration requests ----------
   app.post('/api/client-requests', (req, res) => {
-    const { businessName, ownerName, username, password, phone, area } = req.body || {};
-    if (!businessName || !ownerName || !username || !password || !phone) {
-      return res.status(400).json({ error: 'businessName, ownerName, username, password and phone are required' });
+    const { businessName, ownerName, username, phone, area } = req.body || {};
+    if (!businessName || !ownerName || !username || !phone) {
+      return res.status(400).json({ error: 'businessName, ownerName, username and phone are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
-    }
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     const db = readDB();
@@ -28,7 +25,6 @@ module.exports = function registerPublicRoutes(app) {
       businessName,
       ownerName,
       username,
-      password: hashPassword(password),
       phone,
       area: area || '',
       status: 'pending',
@@ -36,59 +32,6 @@ module.exports = function registerPublicRoutes(app) {
     };
     db.clientRequests.push(request);
     writeDB(db);
-    res.status(201).json({ request: { ...request, password: undefined } });
-  });
-
-  // ---------- Forgot password (self-service, verified by username + phone) ----------
-  app.post('/api/forgot-password', (req, res) => {
-    const { role, username, phone, newPassword } = req.body || {};
-    if (!role || !username || !phone || !newPassword) {
-      return res.status(400).json({ error: 'role, username, phone and newPassword are required' });
-    }
-    if (!isValidPassword(newPassword)) {
-      return res.status(400).json({ error: `newPassword must be at least ${MIN_PASSWORD_LENGTH} characters` });
-    }
-
-    const db = readDB();
-    let account = null;
-    if (role === 'superadmin') {
-      if (db.superadmin.username === username && db.superadmin.phone === phone) account = db.superadmin;
-    } else if (role === 'client') {
-      account = db.clients.find((c) => c.username === username && c.phone === phone) || null;
-    } else if (role === 'customer') {
-      account = db.customers.find((c) => c.username === username && c.phone === phone) || null;
-    } else {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
-
-    if (!account) {
-      return res.status(404).json({ error: 'No account found matching that username and phone number' });
-    }
-
-    account.password = hashPassword(newPassword);
-    writeDB(db);
-    res.json({ ok: true });
-  });
-
-  // ---------- Customer self-service password setup (via WhatsApp/SMS link) ----------
-  app.post('/api/set-password', (req, res) => {
-    const { token, password } = req.body || {};
-    if (!token || !password) {
-      return res.status(400).json({ error: 'token and password are required' });
-    }
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
-    }
-
-    const db = readDB();
-    const customer = db.customers.find((c) => c.passwordSetupToken === token);
-    if (!customer) {
-      return res.status(404).json({ error: 'This setup link is invalid or has already been used' });
-    }
-
-    customer.password = hashPassword(password);
-    customer.passwordSetupToken = null;
-    writeDB(db);
-    res.json({ ok: true, username: customer.username });
+    res.status(201).json({ request });
   });
 };

@@ -54,25 +54,9 @@ function normalizePhone(phone) {
 
 const VEHICLE_TYPES = ['Bike', 'Car'];
 const PAYMENT_METHODS = ['Cash', 'UPI'];
-const MIN_PASSWORD_LENGTH = 6;
 
 function isValidPhone(phone) {
   return /^[0-9]{10}$/.test(String(phone || ''));
-}
-
-function isValidPassword(password) {
-  return typeof password === 'string' && password.length >= MIN_PASSWORD_LENGTH;
-}
-
-const bcrypt = require('bcryptjs');
-
-function hashPassword(password) {
-  return bcrypt.hashSync(password, 10);
-}
-
-function comparePassword(password, hash) {
-  if (!hash) return false;
-  return bcrypt.compareSync(password, hash);
 }
 
 function isValidVehicleType(type) {
@@ -103,10 +87,6 @@ function buildLoginLink(origin, role) {
   return `${origin}/#/login?role=${role}`;
 }
 
-function buildSetPasswordLink(origin, token) {
-  return `${origin}/#/set-password?token=${token}`;
-}
-
 function buildReminderMessage({ customerName, businessName, vehicleType, vehicleNumber, amount, dueMonths, loginUrl }) {
   const period = dueMonths.length === 1
     ? `for ${formatMonthLabel(dueMonths[0])}`
@@ -118,13 +98,13 @@ function buildReminderMessage({ customerName, businessName, vehicleType, vehicle
   );
 }
 
-function buildWelcomeMessage({ customerName, businessName, vehicleType, vehicleNumber, setupLink }) {
+function buildWelcomeMessage({ customerName, businessName, vehicleType, vehicleNumber, loginUrl }) {
   const vehicleLine = vehicleType && vehicleNumber
     ? ` We've registered your ${vehicleType} (${vehicleNumber}) for the monthly wash plan.`
     : '';
   return (
     `Hi ${customerName}, welcome to ${businessName}!${vehicleLine} ` +
-    `Tap here to set your password and access your account: ${setupLink}. Thank you!`
+    `Log in anytime with your phone number (one-tap OTP, no password needed): ${loginUrl}. Thank you!`
   );
 }
 
@@ -136,13 +116,6 @@ function buildPaymentReceiptMessage({ customerName, businessName, vehicleType, v
   return (
     `Hi ${customerName}, this confirms ${businessName} received your payment of ₹${amount} (${method}) ` +
     `for your ${vehicleType} (${vehicleNumber}) — ${formatMonthLabel(month)}. View your history: ${loginUrl}. Thank you!`
-  );
-}
-
-function buildPasswordSetupPromptMessage({ customerName, businessName, setupLink }) {
-  return (
-    `Hi ${customerName}, ${businessName} sent you a link to set (or reset) your account password: ${setupLink}. ` +
-    `If you didn't request this, you can ignore it.`
   );
 }
 
@@ -165,7 +138,7 @@ function sanitizeClient(client) {
 }
 
 function sanitizeCustomer(customer) {
-  const { password, passwordSetupToken, ...rest } = customer;
+  const { password, ...rest } = customer;
   return rest;
 }
 
@@ -178,12 +151,10 @@ module.exports = {
   normalizePhone,
   buildOrigin,
   buildLoginLink,
-  buildSetPasswordLink,
   buildReminderMessage,
   buildWelcomeMessage,
   buildStaffWelcomeMessage,
   buildPaymentReceiptMessage,
-  buildPasswordSetupPromptMessage,
   buildWaLink,
   buildSmsLink,
   makeToken,
@@ -191,13 +162,9 @@ module.exports = {
   sanitizeCustomer,
   VEHICLE_TYPES,
   PAYMENT_METHODS,
-  MIN_PASSWORD_LENGTH,
   isValidPhone,
-  isValidPassword,
   isValidVehicleType,
   isValidPlanAmount,
   isValidVehicleNumber,
   normalizeVehicleNumber,
-  hashPassword,
-  comparePassword,
 };

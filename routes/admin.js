@@ -1,5 +1,5 @@
 const { readDB, writeDB, nextId } = require('../db');
-const { sanitizeClient, isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword } = require('../utils');
+const { sanitizeClient, isValidPhone } = require('../utils');
 
 module.exports = function registerAdminRoutes(app, authenticate) {
   function clientStats(db, client) {
@@ -25,15 +25,12 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   });
 
   app.post('/api/admin/clients', authenticate('superadmin'), (req, res) => {
-    const { businessName, ownerName, username, password, phone, area } = req.body || {};
-    if (!businessName || !ownerName || !username || !password || !phone) {
-      return res.status(400).json({ error: 'businessName, ownerName, username, password and phone are required' });
+    const { businessName, ownerName, username, phone, area } = req.body || {};
+    if (!businessName || !ownerName || !username || !phone) {
+      return res.status(400).json({ error: 'businessName, ownerName, username and phone are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
-    }
-    if (!isValidPassword(password)) {
-      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     const db = readDB();
@@ -46,7 +43,6 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       businessName,
       ownerName,
       username,
-      password: hashPassword(password),
       phone,
       area: area || '',
       active: true,
@@ -74,15 +70,12 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   });
 
   app.put('/api/admin/clients/:id', authenticate('superadmin'), (req, res) => {
-    const { businessName, ownerName, username, password, phone, area } = req.body || {};
+    const { businessName, ownerName, username, phone, area } = req.body || {};
     if (!businessName || !ownerName || !username || !phone) {
       return res.status(400).json({ error: 'businessName, ownerName, username and phone are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
-    }
-    if (password && !isValidPassword(password)) {
-      return res.status(400).json({ error: `password must be at least ${MIN_PASSWORD_LENGTH} characters` });
     }
 
     const db = readDB();
@@ -97,7 +90,6 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     client.username = username;
     client.phone = phone;
     client.area = area || '';
-    if (password) client.password = hashPassword(password);
 
     writeDB(db);
     res.json({ client: clientStats(db, client) });
@@ -124,9 +116,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   // ---------- Business registration requests ----------
   app.get('/api/admin/client-requests', authenticate('superadmin'), (req, res) => {
     const db = readDB();
-    const requests = db.clientRequests
-      .filter((r) => r.status === 'pending')
-      .map((r) => ({ ...r, password: undefined }));
+    const requests = db.clientRequests.filter((r) => r.status === 'pending');
     res.json({ requests });
   });
 
@@ -143,7 +133,6 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       businessName: request.businessName,
       ownerName: request.ownerName,
       username: request.username,
-      password: request.password,
       phone: request.phone,
       area: request.area,
       active: true,

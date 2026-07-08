@@ -158,16 +158,6 @@ a { color: inherit; text-decoration: none; }
 .auth-card-dark .role-tab { color: rgba(255,255,255,0.55); }
 .auth-card-dark .role-tab.active { background: var(--orange); color: #fff; }
 
-.method-tabs {
-  display: flex; gap: 6px; margin-bottom: 18px;
-}
-.method-tab {
-  flex: 1; border: 1px solid rgba(255,255,255,0.14); background: transparent;
-  color: rgba(255,255,255,0.55); padding: 8px; border-radius: 10px;
-  font-size: 12.5px; font-weight: 600;
-}
-.method-tab.active { border-color: var(--aqua); color: #fff; background: rgba(23,195,178,0.14); }
-
 .otp-tap-row { display: flex; gap: 10px; margin-top: 4px; }
 .otp-tap-row .btn { flex: 1; }
 .auth-card-dark .field label { color: rgba(255,255,255,0.55); }
@@ -188,46 +178,90 @@ a { color: inherit; text-decoration: none; }
 .auth-card-dark .auth-error { background: rgba(232, 67, 58, 0.18); color: #FF9187; }
 
 /* ---------- Landing page ---------- */
-.landing { padding: 20px 20px 60px; }
+.landing { padding: 24px 20px 70px; }
 .landing-nav {
   display: flex; align-items: center; justify-content: space-between;
-  max-width: 1040px; margin: 0 auto 40px; padding: 8px 4px;
+  max-width: 1100px; margin: 0 auto 48px; padding: 8px 4px;
 }
-.landing-brand { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 18px; color: #fff; }
+.landing-brand { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 19px; color: #fff; }
 .landing-hero {
-  max-width: 720px; margin: 40px auto 60px; text-align: center;
+  max-width: 760px; margin: 40px auto 0; text-align: center;
 }
 .landing-headline {
-  font-size: 34px; line-height: 1.2; color: #fff; letter-spacing: -0.5px;
+  font-size: 36px; line-height: 1.15; color: #fff; letter-spacing: -0.8px;
 }
-@media (min-width: 640px) { .landing-headline { font-size: 46px; } }
+@media (min-width: 640px) { .landing-headline { font-size: 54px; } }
 .landing-sub {
-  margin-top: 18px; color: rgba(255,255,255,0.65); font-size: 15.5px;
-  max-width: 520px; margin-left: auto; margin-right: auto; line-height: 1.6;
+  margin-top: 20px; color: rgba(255,255,255,0.65); font-size: 16px;
+  max-width: 540px; margin-left: auto; margin-right: auto; line-height: 1.65;
 }
 .landing-cta-row {
-  margin-top: 30px; display: flex; flex-direction: column; gap: 12px;
+  margin-top: 34px; display: flex; flex-direction: column; gap: 12px;
   align-items: center; justify-content: center;
 }
 @media (min-width: 480px) { .landing-cta-row { flex-direction: row; } }
 .landing-cta-row .btn { min-width: 200px; }
 
-.landing-features { max-width: 1040px; margin: 0 auto; }
+.hero-illustration {
+  display: flex; align-items: center; justify-content: center;
+  gap: 28px; margin: 56px auto 64px;
+}
+.vehicle-tile {
+  width: 168px; height: 168px; border-radius: 42px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.10);
+  backdrop-filter: blur(6px);
+}
+.bike-tile {
+  background: linear-gradient(150deg, rgba(23,195,178,0.28), rgba(23,195,178,0.05));
+  border: 1px solid rgba(23,195,178,0.4);
+}
+.car-tile {
+  background: linear-gradient(150deg, rgba(255,91,46,0.30), rgba(255,91,46,0.05));
+  border: 1px solid rgba(255,91,46,0.4);
+}
+.vehicle-emoji {
+  font-size: 88px; line-height: 1;
+  filter: drop-shadow(0 14px 18px rgba(0,0,0,0.45));
+}
+@media (min-width: 640px) {
+  .vehicle-tile { width: 210px; height: 210px; border-radius: 52px; }
+  .vehicle-emoji { font-size: 110px; }
+}
+
+.landing-section-title {
+  text-align: center; color: #fff; font-size: 26px; margin-bottom: 32px;
+}
+
+.landing-steps { max-width: 1100px; margin: 0 auto 72px; }
+.steps-grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+@media (min-width: 780px) { .steps-grid { grid-template-columns: repeat(3, 1fr); } }
+.step-card { padding: 28px 24px; color: #fff; }
+.step-num {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--orange), var(--aqua));
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Sora', sans-serif; font-weight: 700; font-size: 17px; margin-bottom: 16px;
+}
+.step-card h3 { font-size: 16px; margin-bottom: 8px; }
+.step-card p { font-size: 13.5px; color: rgba(255,255,255,0.6); line-height: 1.6; }
+
+.landing-features { max-width: 1100px; margin: 0 auto; }
 .feature-grid {
   display: grid; grid-template-columns: 1fr; gap: 16px;
 }
 @media (min-width: 640px) { .feature-grid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 960px) { .feature-grid { grid-template-columns: repeat(4, 1fr); } }
-.feature-card { padding: 24px 20px; color: #fff; }
+.feature-card { padding: 26px 22px; color: #fff; }
 .feature-icon {
-  width: 44px; height: 44px; border-radius: 12px; background: rgba(255,91,46,0.18);
-  display: flex; align-items: center; justify-content: center; font-size: 21px; margin-bottom: 14px;
+  width: 46px; height: 46px; border-radius: 12px; background: rgba(255,91,46,0.18);
+  display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 16px;
 }
 .feature-card h3 { font-size: 15.5px; margin-bottom: 8px; }
 .feature-card p { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.55; }
 
 .landing-footer {
-  max-width: 1040px; margin: 56px auto 0; text-align: center;
+  max-width: 1100px; margin: 64px auto 0; text-align: center;
   color: rgba(255,255,255,0.4); font-size: 12.5px;
 }
 .landing-footer p { margin-bottom: 8px; }
@@ -266,16 +300,6 @@ a { color: inherit; text-decoration: none; }
   outline: none;
 }
 .field input:focus, .field select:focus { border-color: var(--orange); background: #fff; }
-
-.pwd-wrap { position: relative; }
-.pwd-wrap input { padding-right: 44px; }
-.pwd-toggle-btn {
-  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: var(--text-muted);
-  padding: 8px; display: flex; align-items: center; justify-content: center;
-}
-.pwd-toggle-btn svg { width: 18px; height: 18px; }
-.auth-card-dark .pwd-toggle-btn { color: rgba(255,255,255,0.45); }
 
 .auth-links {
   display: flex; align-items: center; justify-content: space-between;

@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const { readDB } = require('./db');
-const { makeToken, sanitizeClient, sanitizeCustomer, comparePassword, isValidPhone, buildWaLink, buildSmsLink } = require('./utils');
+const { makeToken, sanitizeClient, sanitizeCustomer, isValidPhone, buildWaLink, buildSmsLink } = require('./utils');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -59,21 +59,6 @@ function establishSession(res, db, role, account) {
   sessions.set(token, { role: 'customer', id: account.id, clientId: account.clientId });
   return res.json({ token, role: 'customer', user: sanitizeCustomer(account) });
 }
-
-app.post('/api/login', (req, res) => {
-  const { role, phone, password } = req.body || {};
-  if (!role || !phone || !password) {
-    return res.status(400).json({ error: 'role, phone and password are required' });
-  }
-
-  const db = readDB();
-  const account = findAccountByPhone(db, role, phone);
-  if (!account || !comparePassword(password, account.password)) {
-    return res.status(401).json({ error: 'Invalid phone number or password' });
-  }
-
-  return establishSession(res, db, role, account);
-});
 
 app.post('/api/otp/request', (req, res) => {
   const { role, phone } = req.body || {};

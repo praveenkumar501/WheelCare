@@ -4,36 +4,13 @@
   const API = '/api';
   const VEHICLE_NUMBER_PATTERN = '[A-Za-z]{2}[0-9]{1,2}[A-Za-z]{1,3}[0-9]{4}|[0-9]{2}[Bb][Hh][0-9]{4}[A-Za-z]{1,2}';
   const VEHICLE_NUMBER_TITLE = 'Format: KA01AB1234 (or BH-series like 22BH1234AB)';
-  const MIN_PASSWORD_LEN = 6;
   const EDIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
   const DELETE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/><path d="M10 11v6M14 11v6"/></svg>';
-  const EYE_OPEN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
-  const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a20.6 20.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
-
-  function pwdFieldHtml(label, name, opts) {
-    opts = opts || {};
-    const attrs = [
-      'type="password"',
-      'name="' + name + '"',
-      opts.id ? 'id="' + opts.id + '"' : '',
-      opts.required ? 'required' : '',
-      opts.minlength ? 'minlength="' + opts.minlength + '"' : '',
-      opts.placeholder ? 'placeholder="' + esc(opts.placeholder) + '"' : '',
-      opts.title ? 'title="' + esc(opts.title) + '"' : '',
-      opts.autocomplete ? 'autocomplete="' + opts.autocomplete + '"' : '',
-    ].filter(Boolean).join(' ');
-    return (
-      '<div class="field"><label>' + esc(label) + '</label>' +
-      '<div class="pwd-wrap"><input ' + attrs + ' />' +
-      '<button type="button" class="pwd-toggle-btn" tabindex="-1" aria-label="Show password">' + EYE_OPEN_ICON + '</button></div></div>'
-    );
-  }
   const state = {
     token: localStorage.getItem('wc_token') || null,
     role: localStorage.getItem('wc_role') || null,
     user: JSON.parse(localStorage.getItem('wc_user') || 'null'),
     loginRole: 'client',
-    loginMethod: 'password',
     view: 'landing',
     clientTab: 'home',
     data: null, // role-specific dashboard payload
@@ -103,16 +80,6 @@
     localStorage.setItem('wc_user', JSON.stringify(user));
   }
 
-  document.body.addEventListener('click', (e) => {
-    const btn = e.target.closest('.pwd-toggle-btn');
-    if (!btn) return;
-    const input = btn.previousElementSibling;
-    if (!input) return;
-    const showing = input.type === 'text';
-    input.type = showing ? 'password' : 'text';
-    btn.innerHTML = showing ? EYE_OPEN_ICON : EYE_OFF_ICON;
-  });
-
   // ---------------- Modal ----------------
   function openModal(title, bodyHtml, onMount) {
     const overlay = document.createElement('div');
@@ -167,6 +134,16 @@
     { icon: '📊', title: 'Real-Time Dashboard', body: 'Collections, pending dues, and full payment history — always current, always one tap away.' },
   ];
 
+  const LANDING_STEPS = [
+    { n: '1', title: 'Register your business', body: 'Sign up in a minute with your phone number and area — no password to remember, ever.' },
+    { n: '2', title: 'Add customers & vehicles', body: 'Log bikes and cars with a monthly plan amount. Everyone logs in with a one-tap OTP.' },
+    { n: '3', title: 'Collect and remind', body: 'Record payments as they come in, and tap to send WhatsApp reminders for anything overdue.' },
+  ];
+
+  const HERO_ILLUSTRATION_HTML =
+    '<div class="vehicle-tile bike-tile"><span class="vehicle-emoji">🛵</span></div>' +
+    '<div class="vehicle-tile car-tile"><span class="vehicle-emoji">🚗</span></div>';
+
   function renderLanding() {
     $app.innerHTML =
       '<div class="landing premium-bg">' +
@@ -175,15 +152,25 @@
           '<button class="btn btn-outline-light btn-sm" id="nav-login-btn">Log In</button>' +
         '</nav>' +
         '<section class="landing-hero">' +
-          '<div class="auth-badge-glow" style="margin:0 auto 24px;">🛞</div>' +
           '<h1 class="landing-headline">Run your <span class="grad-text">vehicle care</span> subscription business like a pro</h1>' +
           '<p class="landing-sub">Track monthly dues, send WhatsApp reminders with one tap, and manage customers, staff and payments — all from one dashboard.</p>' +
           '<div class="landing-cta-row">' +
             '<button class="btn btn-primary" id="get-started-btn">Get Started Free</button>' +
             '<button class="btn btn-outline-light" id="hero-login-btn">I already have an account</button>' +
           '</div>' +
+          '<div class="hero-illustration">' + HERO_ILLUSTRATION_HTML + '</div>' +
+        '</section>' +
+        '<section class="landing-steps">' +
+          '<h2 class="landing-section-title">How it works</h2>' +
+          '<div class="steps-grid">' +
+            LANDING_STEPS.map((s) =>
+              '<div class="glass-card step-card"><div class="step-num">' + s.n + '</div>' +
+              '<h3>' + esc(s.title) + '</h3><p>' + esc(s.body) + '</p></div>'
+            ).join('') +
+          '</div>' +
         '</section>' +
         '<section class="landing-features">' +
+          '<h2 class="landing-section-title">Everything you need</h2>' +
           '<div class="feature-grid">' +
             LANDING_FEATURES.map((f) =>
               '<div class="glass-card feature-card"><div class="feature-icon">' + f.icon + '</div>' +
@@ -207,16 +194,13 @@
 
   // ================= LOGIN =================
   const ROLE_HINTS = {
-    client: 'Demo phone: 9876543210 · password: praveen123',
-    customer: 'Demo phone: 9812345671 · password: anita123',
-    superadmin: 'Demo phone: 9999999999 · password: admin123',
+    client: 'Demo phone: 9876543210',
+    customer: 'Demo phone: 9812345671',
+    superadmin: 'Demo phone: 9999999999',
   };
   const ROLE_LABELS = { client: 'Business', customer: 'Customer', superadmin: 'Super Admin' };
 
   function renderLogin(errorMsg) {
-    if (!state.loginMethod) state.loginMethod = 'password';
-    const isOtp = state.loginMethod === 'otp';
-
     $app.innerHTML =
       '<div class="auth-screen premium-bg">' +
         '<button class="auth-back-link" id="auth-back-btn">← Back</button>' +
@@ -230,20 +214,10 @@
                 '<button class="role-tab' + (state.loginRole === r ? ' active' : '') + '" data-role="' + r + '">' + ROLE_LABELS[r] + '</button>'
               ).join('') +
             '</div>' +
-            '<div class="method-tabs" id="method-tabs">' +
-              '<button class="method-tab' + (!isOtp ? ' active' : '') + '" data-method="password">Password</button>' +
-              '<button class="method-tab' + (isOtp ? ' active' : '') + '" data-method="otp">OTP</button>' +
-            '</div>' +
             (errorMsg ? '<div class="auth-error">' + esc(errorMsg) + '</div>' : '') +
-            (isOtp ? otpFormHtml() :
-              '<form id="login-form">' +
-                '<div class="field"><label>Phone</label><input id="login-phone" required pattern="[0-9]{10}" placeholder="10-digit number" autocomplete="tel" /></div>' +
-                pwdFieldHtml('Password', 'password', { id: 'login-password', required: true, autocomplete: 'current-password' }) +
-                '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
-              '</form>') +
+            otpFormHtml() +
             '<div class="auth-links">' +
-              '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
-              (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '') +
+              (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '<span></span>') +
             '</div>' +
             '<div class="auth-hint">' + ROLE_HINTS[state.loginRole] + '</div>' +
           '</div>' +
@@ -262,32 +236,8 @@
       renderLogin();
     });
 
-    document.getElementById('method-tabs').addEventListener('click', (e) => {
-      const btn = e.target.closest('.method-tab');
-      if (!btn) return;
-      state.loginMethod = btn.dataset.method;
-      renderLogin();
-    });
+    bindOtpForm();
 
-    if (isOtp) {
-      bindOtpForm();
-    } else {
-      document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const phone = document.getElementById('login-phone').value.trim();
-        const password = document.getElementById('login-password').value;
-        try {
-          const result = await api('/login', { method: 'POST', body: JSON.stringify({ role: state.loginRole, phone, password }) });
-          saveSession(result.token, result.role, result.user);
-          toast('Welcome back, ' + (result.user.name || result.user.businessName || result.user.username) + '!', 'success');
-          render();
-        } catch (err) {
-          renderLogin(err.message);
-        }
-      });
-    }
-
-    document.getElementById('forgot-password-btn').addEventListener('click', openForgotPasswordModal);
     const registerBtn = document.getElementById('register-business-btn');
     if (registerBtn) registerBtn.addEventListener('click', openRegisterBusinessModal);
   }
@@ -343,35 +293,6 @@
     });
   }
 
-  function openForgotPasswordModal() {
-    const html =
-      '<form id="forgot-password-form">' +
-        '<div class="field"><label>Role</label><select name="role">' +
-          Object.keys(ROLE_LABELS).map((r) => '<option value="' + r + '"' + (state.loginRole === r ? ' selected' : '') + '>' + ROLE_LABELS[r] + '</option>').join('') +
-        '</select></div>' +
-        '<div class="field"><label>Username</label><input name="username" required /></div>' +
-        '<div class="field"><label>Phone (registered with your account)</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
-        pwdFieldHtml('New Password', 'newPassword', { required: true, minlength: 6, title: 'At least 6 characters' }) +
-        '<button type="submit" class="btn btn-primary btn-block">Reset Password</button>' +
-      '</form>';
-    const overlay = openModal('Forgot Password', html, (ov) => {
-      ov.querySelector('#forgot-password-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const f = new FormData(e.target);
-        try {
-          await api('/forgot-password', {
-            method: 'POST',
-            body: JSON.stringify({ role: f.get('role'), username: f.get('username'), phone: f.get('phone'), newPassword: f.get('newPassword') }),
-          });
-          toast('Password reset. You can log in now.', 'success');
-          overlay.remove();
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
-    });
-  }
-
   function openRegisterBusinessModal() {
     const html =
       '<form id="register-business-form">' +
@@ -381,10 +302,8 @@
           '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
           '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
         '</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Choose Username</label><input name="username" required /></div>' +
-          pwdFieldHtml('Choose Password', 'password', { required: true, minlength: 6, title: 'At least 6 characters' }) +
-        '</div>' +
+        '<div class="field"><label>Choose Username</label><input name="username" required /></div>' +
+        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">No password needed — you\'ll log in with a one-tap OTP to this phone number.</p>' +
         '<button type="submit" class="btn btn-primary btn-block">Submit Request</button>' +
       '</form>';
     const overlay = openModal('Register Your Business', html, (ov) => {
@@ -397,7 +316,7 @@
             body: JSON.stringify({
               businessName: f.get('businessName'), ownerName: f.get('ownerName'),
               phone: f.get('phone'), area: f.get('area'),
-              username: f.get('username'), password: f.get('password'),
+              username: f.get('username'),
             }),
           });
           toast('Request submitted! We’ll notify you once approved.', 'success');
@@ -708,7 +627,7 @@
           '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
         '</div>' +
         '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
-        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">The customer sets their own password via a link you send them after adding them.</p>' +
+        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">No password needed — the customer logs in with a one-tap OTP to their phone.</p>' +
         '<div class="divider-label">First Vehicle (optional)</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
@@ -790,7 +709,6 @@
           '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
         '</div>' +
         '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(customer.username) + '" /></div>' +
-        '<button type="button" class="btn btn-outline btn-block btn-sm" id="reset-pwd-btn" style="margin-bottom:16px;">Send Password Setup Link</button>' +
         '<div class="divider-label">Add a Vehicle (optional)</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
@@ -804,14 +722,6 @@
       '</form>';
 
     const overlay = openModal('Edit Customer', html, (ov) => {
-      ov.querySelector('#reset-pwd-btn').addEventListener('click', async () => {
-        try {
-          const result = await api('/client/customers/' + customer.id + '/reset-password', { method: 'POST' });
-          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
       ov.querySelector('#edit-customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -1202,10 +1112,7 @@
             '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
             '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
           '</div>' +
-          '<div class="form-grid">' +
-            '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
-            pwdFieldHtml('Login Password', 'password', { required: true, minlength: 6, title: 'At least 6 characters' }) +
-          '</div>' +
+          '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
           '<button type="submit" class="btn btn-primary btn-block">Onboard Business</button>' +
         '</form>';
       const overlay = openModal('Add Client Business', html, (ov) => {
@@ -1218,7 +1125,7 @@
               body: JSON.stringify({
                 businessName: f.get('businessName'), ownerName: f.get('ownerName'),
                 phone: f.get('phone'), area: f.get('area'),
-                username: f.get('username'), password: f.get('password'),
+                username: f.get('username'),
               }),
             });
             toast('Business onboarded', 'success');
@@ -1251,10 +1158,7 @@
           '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(client.phone) + '" /></div>' +
           '<div class="field"><label>Area</label><input name="area" value="' + esc(client.area || '') + '" /></div>' +
         '</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(client.username) + '" /></div>' +
-          pwdFieldHtml('New Password', 'password', { minlength: 6, placeholder: 'Leave blank to keep', title: 'At least 6 characters' }) +
-        '</div>' +
+        '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(client.username) + '" /></div>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
 
@@ -1266,7 +1170,6 @@
           businessName: f.get('businessName'), ownerName: f.get('ownerName'),
           phone: f.get('phone'), area: f.get('area'), username: f.get('username'),
         };
-        if (f.get('password')) payload.password = f.get('password');
         try {
           await api('/admin/clients/' + client.id, { method: 'PUT', body: JSON.stringify(payload) });
           toast('Business updated', 'success');
@@ -1290,50 +1193,6 @@
     }
   }
 
-  // ================= SET PASSWORD (public, via WhatsApp/SMS link) =================
-  function renderSetPassword(token) {
-    $app.innerHTML =
-      '<div class="auth-screen premium-bg">' +
-        '<div class="auth-center">' +
-          '<div class="auth-badge-glow">🔑</div>' +
-          '<h1 class="auth-brand">Set Your <span class="grad-text">Password</span></h1>' +
-          '<p class="auth-tagline">Choose a password to activate your account.</p>' +
-          '<div class="glass-card auth-card-dark">' +
-            '<div class="auth-error hidden" id="setpwd-error"></div>' +
-            '<form id="set-password-form">' +
-              pwdFieldHtml('New Password', 'password', { required: true, minlength: 6, autocomplete: 'new-password' }) +
-              pwdFieldHtml('Confirm Password', 'confirm', { required: true, minlength: 6, autocomplete: 'new-password' }) +
-              '<button type="submit" class="btn btn-primary btn-block">Set Password &amp; Continue</button>' +
-            '</form>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
-
-    document.getElementById('set-password-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const f = new FormData(e.target);
-      const password = f.get('password');
-      const errorEl = document.getElementById('setpwd-error');
-      errorEl.classList.add('hidden');
-      if (password !== f.get('confirm')) {
-        errorEl.textContent = 'Passwords do not match';
-        errorEl.classList.remove('hidden');
-        return;
-      }
-      try {
-        const result = await api('/set-password', { method: 'POST', body: JSON.stringify({ token, password }) });
-        location.hash = '';
-        state.view = 'login';
-        state.loginRole = 'customer';
-        render();
-        toast('Password set! Log in as ' + result.username + '.', 'success');
-      } catch (err) {
-        errorEl.textContent = err.message;
-        errorEl.classList.remove('hidden');
-      }
-    });
-  }
-
   function parseHash() {
     const raw = location.hash.replace(/^#\/?/, '');
     const [path, qs] = raw.split('?');
@@ -1341,14 +1200,10 @@
   }
 
   const initialHash = parseHash();
-  if (initialHash.path === 'set-password' && initialHash.params.get('token')) {
-    renderSetPassword(initialHash.params.get('token'));
-  } else {
-    if (initialHash.path === 'login') {
-      state.view = 'login';
-      const role = initialHash.params.get('role');
-      if (role && ROLE_LABELS[role]) state.loginRole = role;
-    }
-    render();
+  if (initialHash.path === 'login') {
+    state.view = 'login';
+    const role = initialHash.params.get('role');
+    if (role && ROLE_LABELS[role]) state.loginRole = role;
   }
+  render();
 })();
