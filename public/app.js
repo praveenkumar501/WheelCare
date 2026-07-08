@@ -6,6 +6,28 @@
   const VEHICLE_NUMBER_TITLE = 'Format: KA01AB1234 (or BH-series like 22BH1234AB)';
   const EDIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
   const DELETE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/><path d="M10 11v6M14 11v6"/></svg>';
+  const EYE_OPEN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 8 11 8a20.6 20.6 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+
+  function pwdFieldHtml(label, name, opts) {
+    opts = opts || {};
+    const attrs = [
+      'type="password"',
+      'name="' + name + '"',
+      opts.id ? 'id="' + opts.id + '"' : '',
+      opts.required ? 'required' : '',
+      opts.minlength ? 'minlength="' + opts.minlength + '"' : '',
+      opts.placeholder ? 'placeholder="' + esc(opts.placeholder) + '"' : '',
+      opts.title ? 'title="' + esc(opts.title) + '"' : '',
+      opts.autocomplete ? 'autocomplete="' + opts.autocomplete + '"' : '',
+    ].filter(Boolean).join(' ');
+    return (
+      '<div class="field"><label>' + esc(label) + '</label>' +
+      '<div class="pwd-wrap"><input ' + attrs + ' />' +
+      '<button type="button" class="pwd-toggle-btn" tabindex="-1" aria-label="Show password">' + EYE_OPEN_ICON + '</button></div></div>'
+    );
+  }
+
   const state = {
     token: localStorage.getItem('wc_token') || null,
     role: localStorage.getItem('wc_role') || null,
@@ -120,7 +142,10 @@
 
   // ---------------- Root render ----------------
   function render() {
-    if (!state.token) return state.view === 'login' ? renderLogin() : renderLanding();
+    if (!state.token) {
+      if (state.view === 'set-password') return renderSetPassword();
+      return state.view === 'login' ? renderLogin() : renderLanding();
+    }
     if (state.role === 'superadmin') return renderAdminShell();
     if (state.role === 'client') return renderClientShell();
     if (state.role === 'customer') return renderCustomerShell();
@@ -135,8 +160,8 @@
   ];
 
   const LANDING_STEPS = [
-    { n: '1', title: 'Register your business', body: 'Sign up in a minute with your phone number and area — no password to remember, ever.' },
-    { n: '2', title: 'Add customers & vehicles', body: 'Log bikes and cars with a monthly plan amount. Everyone logs in with a one-tap OTP.' },
+    { n: '1', title: 'Register your business', body: 'Sign up in a minute with your phone number and area — we generate your login username for you.' },
+    { n: '2', title: 'Add customers & vehicles', body: 'Log bikes and cars with a monthly plan amount. Everyone gets a WhatsApp/SMS link to set their own password.' },
     { n: '3', title: 'Collect and remind', body: 'Record payments as they come in, and tap to send WhatsApp reminders for anything overdue.' },
   ];
 
@@ -194,9 +219,9 @@
 
   // ================= LOGIN =================
   const ROLE_HINTS = {
-    client: 'Demo phone: 9876543210',
-    customer: 'Demo phone: 9812345671',
-    superadmin: 'Demo phone: 9999999999',
+    client: 'Demo username: praveen · password: password123',
+    customer: 'Demo username: anita · password: password123',
+    superadmin: 'Demo username: admin · password: password123',
   };
   const ROLE_LABELS = { client: 'Business', customer: 'Customer', superadmin: 'Super Admin' };
 
@@ -215,9 +240,14 @@
               ).join('') +
             '</div>' +
             (errorMsg ? '<div class="auth-error">' + esc(errorMsg) + '</div>' : '') +
-            otpFormHtml() +
+            '<form id="login-form">' +
+              '<div class="field"><label>Username</label><input id="login-username" required autocomplete="username" /></div>' +
+              pwdFieldHtml('Password', 'password', { id: 'login-password', required: true, autocomplete: 'current-password' }) +
+              '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
+            '</form>' +
             '<div class="auth-links">' +
               (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '<span></span>') +
+              '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
             '</div>' +
             '<div class="auth-hint">' + ROLE_HINTS[state.loginRole] + '</div>' +
           '</div>' +
@@ -236,56 +266,91 @@
       renderLogin();
     });
 
-    bindOtpForm();
-
-    const registerBtn = document.getElementById('register-business-btn');
-    if (registerBtn) registerBtn.addEventListener('click', openRegisterBusinessModal);
-  }
-
-  function otpFormHtml() {
-    return (
-      '<form id="otp-request-form">' +
-        '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input id="otp-phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" autocomplete="tel" /></div></div>' +
-        '<button type="submit" class="btn btn-primary btn-block" id="send-otp-btn">Send OTP</button>' +
-      '</form>' +
-      '<div id="otp-step2" class="hidden">' +
-        '<div class="otp-tap-row">' +
-          '<a href="#" target="_blank" rel="noopener" class="btn btn-outline-light" id="otp-wa-link">💬 WhatsApp</a>' +
-          '<a href="#" target="_blank" rel="noopener" class="btn btn-outline-light" id="otp-sms-link">✉️ SMS</a>' +
-        '</div>' +
-        '<p style="font-size:12px;color:rgba(255,255,255,0.55);margin:10px 0 16px;">Tap one to see your code, then enter it below.</p>' +
-        '<form id="otp-verify-form">' +
-          '<div class="field"><label>Enter Code</label><input id="otp-code" required maxlength="6" pattern="[0-9]{6}" placeholder="6-digit code" autocomplete="one-time-code" /></div>' +
-          '<button type="submit" class="btn btn-primary btn-block">Verify &amp; Log In</button>' +
-        '</form>' +
-      '</div>'
-    );
-  }
-
-  function bindOtpForm() {
-    document.getElementById('otp-request-form').addEventListener('submit', async (e) => {
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const phone = document.getElementById('otp-phone').value.trim();
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value;
       try {
-        const result = await api('/otp/request', { method: 'POST', body: JSON.stringify({ role: state.loginRole, phone }) });
-        document.getElementById('otp-wa-link').href = result.waLink;
-        document.getElementById('otp-sms-link').href = result.smsLink;
-        document.getElementById('otp-step2').classList.remove('hidden');
-        document.getElementById('send-otp-btn').textContent = 'Resend OTP';
-        toast('Code ready — tap WhatsApp or SMS to view it', 'success');
+        const result = await api('/login', { method: 'POST', body: JSON.stringify({ role: state.loginRole, username, password }) });
+        saveSession(result.token, result.role, result.user);
+        toast('Welcome back, ' + (result.user.name || result.user.businessName || result.user.username) + '!', 'success');
+        render();
       } catch (err) {
-        toast(err.message, 'error');
+        renderLogin(err.message);
       }
     });
 
-    document.getElementById('otp-verify-form').addEventListener('submit', async (e) => {
+    const registerBtn = document.getElementById('register-business-btn');
+    if (registerBtn) registerBtn.addEventListener('click', openRegisterBusinessModal);
+    document.getElementById('forgot-password-btn').addEventListener('click', openForgotPasswordModal);
+  }
+
+  function openForgotPasswordModal() {
+    const role = state.loginRole;
+    const html =
+      '<form id="forgot-password-form">' +
+        '<div class="field"><label>Username</label><input name="username" required /></div>' +
+        '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
+        pwdFieldHtml('New Password', 'newPassword', { required: true, minlength: 6, title: 'At least 6 characters' }) +
+        '<button type="submit" class="btn btn-primary btn-block">Reset Password</button>' +
+      '</form>';
+    const overlay = openModal('Forgot Password', html, (ov) => {
+      ov.querySelector('#forgot-password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({
+              role, username: f.get('username'), phone: f.get('phone'), newPassword: f.get('newPassword'),
+            }),
+          });
+          toast('Password reset — you can log in now', 'success');
+          overlay.remove();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  function renderSetPassword() {
+    const role = state.setPasswordRole;
+    const token = state.setPasswordToken;
+    if (!role || !token) {
+      state.view = 'login';
+      return renderLogin();
+    }
+    $app.innerHTML =
+      '<div class="auth-screen premium-bg">' +
+        '<div class="auth-center">' +
+          '<div class="auth-badge-glow">🛞</div>' +
+          '<h1 class="auth-brand">Wheel<span class="grad-text">Care</span></h1>' +
+          '<p class="auth-tagline">Set your account password to finish signing in.</p>' +
+          '<div class="glass-card auth-card-dark">' +
+            '<form id="set-password-form">' +
+              pwdFieldHtml('New Password', 'password', { required: true, minlength: 6, autocomplete: 'new-password' }) +
+              pwdFieldHtml('Confirm Password', 'confirm', { required: true, minlength: 6, autocomplete: 'new-password' }) +
+              '<button type="submit" class="btn btn-primary btn-block">Set Password &amp; Continue</button>' +
+            '</form>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    document.getElementById('set-password-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const phone = document.getElementById('otp-phone').value.trim();
-      const otp = document.getElementById('otp-code').value.trim();
+      const password = document.getElementById('set-password-form').password.value;
+      const confirm = document.getElementById('set-password-form').confirm.value;
+      if (password !== confirm) {
+        toast('Passwords do not match', 'error');
+        return;
+      }
       try {
-        const result = await api('/otp/verify', { method: 'POST', body: JSON.stringify({ role: state.loginRole, phone, otp }) });
-        saveSession(result.token, result.role, result.user);
-        toast('Welcome back, ' + (result.user.name || result.user.businessName || result.user.username) + '!', 'success');
+        const result = await api('/set-password', { method: 'POST', body: JSON.stringify({ role, token, password }) });
+        toast('Password set! Log in as ' + result.username, 'success');
+        state.view = 'login';
+        state.loginRole = role;
+        location.hash = '#/login?role=' + role;
         render();
       } catch (err) {
         toast(err.message, 'error');
@@ -302,8 +367,7 @@
           '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
         '</div>' +
-        '<div class="field"><label>Choose Username</label><input name="username" required /></div>' +
-        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">No password needed — you\'ll log in with a one-tap OTP to this phone number.</p>' +
+        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">Once approved, we\'ll generate your login username and send you a WhatsApp/SMS link to set your password.</p>' +
         '<button type="submit" class="btn btn-primary btn-block">Submit Request</button>' +
       '</form>';
     const overlay = openModal('Register Your Business', html, (ov) => {
@@ -316,7 +380,6 @@
             body: JSON.stringify({
               businessName: f.get('businessName'), ownerName: f.get('ownerName'),
               phone: f.get('phone'), area: f.get('area'),
-              username: f.get('username'),
             }),
           });
           toast('Request submitted! We’ll notify you once approved.', 'success');
@@ -626,8 +689,7 @@
           '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
         '</div>' +
-        '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
-        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">No password needed — the customer logs in with a one-tap OTP to their phone.</p>' +
+        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">A login username is generated automatically. The customer gets a WhatsApp/SMS link to set their own password.</p>' +
         '<div class="divider-label">First Vehicle (optional)</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
@@ -646,14 +708,13 @@
         const f = new FormData(e.target);
         const payload = {
           name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'),
-          username: f.get('username'),
         };
         if (f.get('vtype') && f.get('vnumber') && f.get('vamount')) {
           payload.vehicle = { type: f.get('vtype'), number: f.get('vnumber'), model: f.get('vmodel'), planAmount: f.get('vamount') };
         }
         try {
           const result = await api('/client/customers', { method: 'POST', body: JSON.stringify(payload) });
-          toast('Customer added', 'success');
+          toast('Customer added — username: ' + result.username, 'success');
           showSendConfirmation(overlay, result.welcomeWaLink, result.welcomeSmsLink, async () => {
             await loadClientData();
             renderClientTab();
@@ -708,7 +769,8 @@
           '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(customer.phone) + '" /></div></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
         '</div>' +
-        '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(customer.username) + '" /></div>' +
+        '<div class="field"><label>Login Username</label><input value="' + esc(customer.username) + '" disabled /></div>' +
+        '<button type="button" class="btn btn-outline btn-sm" id="resend-setup-btn" style="margin:-8px 0 16px;">Resend password setup link</button>' +
         '<div class="divider-label">Add a Vehicle (optional)</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
@@ -722,10 +784,18 @@
       '</form>';
 
     const overlay = openModal('Edit Customer', html, (ov) => {
+      ov.querySelector('#resend-setup-btn').addEventListener('click', async () => {
+        try {
+          const result = await api('/client/customers/' + customer.id + '/resend-setup', { method: 'POST' });
+          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
       ov.querySelector('#edit-customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
-        const payload = { name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'), username: f.get('username') };
+        const payload = { name: f.get('name'), phone: f.get('phone'), flat: f.get('flat') };
         try {
           await api('/client/customers/' + customer.id, { method: 'PUT', body: JSON.stringify(payload) });
           if (f.get('vtype') && f.get('vnumber') && f.get('vamount')) {
@@ -1094,9 +1164,9 @@
     content.querySelectorAll('[data-approve-request]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         try {
-          await api('/admin/client-requests/' + btn.dataset.approveRequest + '/approve', { method: 'POST' });
-          toast('Business approved', 'success');
-          renderAdminDashboard();
+          const result = await api('/admin/client-requests/' + btn.dataset.approveRequest + '/approve', { method: 'POST' });
+          toast('Business approved — username: ' + result.username, 'success');
+          openSendConfirmationModal('Send Setup Link', result.waLink, result.smsLink, renderAdminDashboard);
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -1139,7 +1209,7 @@
             '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
             '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
           '</div>' +
-          '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
+          '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">A login username is generated automatically. The business owner gets a WhatsApp/SMS link to set their own password.</p>' +
           '<button type="submit" class="btn btn-primary btn-block">Onboard Business</button>' +
         '</form>';
       const overlay = openModal('Add Client Business', html, (ov) => {
@@ -1147,17 +1217,15 @@
           e.preventDefault();
           const f = new FormData(e.target);
           try {
-            await api('/admin/clients', {
+            const result = await api('/admin/clients', {
               method: 'POST',
               body: JSON.stringify({
                 businessName: f.get('businessName'), ownerName: f.get('ownerName'),
                 phone: f.get('phone'), area: f.get('area'),
-                username: f.get('username'),
               }),
             });
-            toast('Business onboarded', 'success');
-            overlay.remove();
-            renderAdminDashboard();
+            toast('Business onboarded — username: ' + result.username, 'success');
+            showSendConfirmation(overlay, result.waLink, result.smsLink, renderAdminDashboard);
           } catch (err) {
             toast(err.message, 'error');
           }
@@ -1185,17 +1253,26 @@
           '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(client.phone) + '" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" value="' + esc(client.area || '') + '" /></div>' +
         '</div>' +
-        '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(client.username) + '" /></div>' +
+        '<div class="field"><label>Login Username</label><input value="' + esc(client.username) + '" disabled /></div>' +
+        '<button type="button" class="btn btn-outline btn-sm" id="resend-client-setup-btn" style="margin:-8px 0 16px;">Resend password setup link</button>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
 
     const overlay = openModal('Edit Client Business', html, (ov) => {
+      ov.querySelector('#resend-client-setup-btn').addEventListener('click', async () => {
+        try {
+          const result = await api('/admin/clients/' + client.id + '/resend-setup', { method: 'POST' });
+          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
       ov.querySelector('#edit-client-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
         const payload = {
           businessName: f.get('businessName'), ownerName: f.get('ownerName'),
-          phone: f.get('phone'), area: f.get('area'), username: f.get('username'),
+          phone: f.get('phone'), area: f.get('area'),
         };
         try {
           await api('/admin/clients/' + client.id, { method: 'PUT', body: JSON.stringify(payload) });
@@ -1234,11 +1311,25 @@
     }
   });
 
+  document.body.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pwd-toggle-btn');
+    if (!btn) return;
+    const input = btn.previousElementSibling;
+    if (!input) return;
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.innerHTML = showing ? EYE_OPEN_ICON : EYE_OFF_ICON;
+  });
+
   const initialHash = parseHash();
   if (initialHash.path === 'login') {
     state.view = 'login';
     const role = initialHash.params.get('role');
     if (role && ROLE_LABELS[role]) state.loginRole = role;
+  } else if (initialHash.path === 'set-password') {
+    state.view = 'set-password';
+    state.setPasswordRole = initialHash.params.get('role');
+    state.setPasswordToken = initialHash.params.get('token');
   }
   render();
 })();

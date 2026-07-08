@@ -359,6 +359,16 @@ a { color: inherit; text-decoration: none; }
 }
 .field input:focus, .field select:focus { border-color: var(--orange); background: #fff; }
 
+.pwd-wrap { position: relative; }
+.pwd-wrap input { padding-right: 44px; }
+.pwd-toggle-btn {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted);
+  padding: 8px; display: flex; align-items: center; justify-content: center;
+}
+.pwd-toggle-btn svg { width: 18px; height: 18px; }
+.auth-card-dark .pwd-toggle-btn { color: rgba(255,255,255,0.45); }
+
 .phone-input-group {
   display: flex; align-items: stretch;
   border: 1.5px solid var(--border);

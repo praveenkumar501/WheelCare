@@ -1,7 +1,8 @@
 {
   "superadmin": {
     "username": "admin",
-    "phone": "9999999999"
+    "phone": "9999999999",
+    "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC"
   },
   "clientRequests": [],
   "clients": [
@@ -13,7 +14,9 @@
       "phone": "9876543210",
       "area": "Sunrise Residency, Block A",
       "active": true,
-      "createdAt": "2026-04-01T09:00:00.000Z"
+      "createdAt": "2026-04-01T09:00:00.000Z",
+      "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
+      "passwordSetupToken": null
     },
     {
       "id": "c2",
@@ -23,47 +26,291 @@
       "phone": "9123456780",
       "area": "Green Meadows Apartments",
       "active": true,
-      "createdAt": "2026-05-10T09:00:00.000Z"
+      "createdAt": "2026-05-10T09:00:00.000Z",
+      "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
+      "passwordSetupToken": null
     }
   ],
   "customers": [
-    { "id": "cu1", "clientId": "c1", "name": "Anita Sharma", "phone": "9812345671", "flat": "A-101", "username": "anita", "createdAt": "2026-04-02T10:00:00.000Z" },
-    { "id": "cu2", "clientId": "c1", "name": "Rohit Verma", "phone": "9812345672", "flat": "A-204", "username": "rohit", "createdAt": "2026-04-03T10:00:00.000Z" },
-    { "id": "cu3", "clientId": "c1", "name": "Kavya Reddy", "phone": "9812345673", "flat": "B-305", "username": "kavya", "createdAt": "2026-04-05T10:00:00.000Z" },
-    { "id": "cu4", "clientId": "c1", "name": "Suresh Nair", "phone": "9812345674", "flat": "B-102", "username": "suresh", "createdAt": "2026-04-07T10:00:00.000Z" },
-    { "id": "cu5", "clientId": "c2", "name": "Meera Iyer", "phone": "9812345675", "flat": "C-201", "username": "meera", "createdAt": "2026-05-11T10:00:00.000Z" }
+    {
+      "id": "cu1",
+      "clientId": "c1",
+      "name": "Anita Sharma",
+      "phone": "9812345671",
+      "flat": "A-101",
+      "username": "anita",
+      "createdAt": "2026-04-02T10:00:00.000Z",
+      "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
+      "passwordSetupToken": null
+    },
+    {
+      "id": "cu2",
+      "clientId": "c1",
+      "name": "Rohit Verma",
+      "phone": "9812345672",
+      "flat": "A-204",
+      "username": "rohit",
+      "createdAt": "2026-04-03T10:00:00.000Z",
+      "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
+      "passwordSetupToken": null
+    },
+    {
+      "id": "cu3",
+      "clientId": "c1",
+      "name": "Kavya Reddy",
+      "phone": "9812345673",
+      "flat": "B-305",
+      "username": "kavya",
+      "createdAt": "2026-04-05T10:00:00.000Z",
+      "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
+      "passwordSetupToken": null
+    },
+    {
+      "id": "cu4",
+      "clientId": "c1",
+      "name": "Suresh Nair",
+      "phone": "9812345674",
+      "flat": "B-102",
+      "username": "suresh",
+      "createdAt": "2026-04-07T10:00:00.000Z",
+      "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
+      "passwordSetupToken": null
+    },
+    {
+      "id": "cu5",
+      "clientId": "c2",
+      "name": "Meera Iyer",
+      "phone": "9812345675",
+      "flat": "C-201",
+      "username": "meera",
+      "createdAt": "2026-05-11T10:00:00.000Z",
+      "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
+      "passwordSetupToken": null
+    }
   ],
   "vehicles": [
-    { "id": "v1", "customerId": "cu1", "type": "Bike", "number": "KA01AB1234", "model": "Honda Activa", "planAmount": 300, "createdAt": "2026-04-02T10:05:00.000Z" },
-    { "id": "v2", "customerId": "cu1", "type": "Car", "number": "KA01CD5678", "model": "Maruti Swift", "planAmount": 700, "createdAt": "2026-04-02T10:06:00.000Z" },
-    { "id": "v3", "customerId": "cu2", "type": "Bike", "number": "KA02EF9012", "model": "TVS Jupiter", "planAmount": 300, "createdAt": "2026-04-03T10:05:00.000Z" },
-    { "id": "v4", "customerId": "cu3", "type": "Car", "number": "KA03GH3456", "model": "Hyundai i20", "planAmount": 700, "createdAt": "2026-04-05T10:05:00.000Z" },
-    { "id": "v5", "customerId": "cu4", "type": "Bike", "number": "KA04IJ7890", "model": "Bajaj Pulsar", "planAmount": 300, "createdAt": "2026-04-07T10:05:00.000Z" },
-    { "id": "v6", "customerId": "cu5", "type": "Car", "number": "KA05KL1122", "model": "Tata Nexon", "planAmount": 700, "createdAt": "2026-05-11T10:05:00.000Z" }
+    {
+      "id": "v1",
+      "customerId": "cu1",
+      "type": "Bike",
+      "number": "KA01AB1234",
+      "model": "Honda Activa",
+      "planAmount": 300,
+      "createdAt": "2026-04-02T10:05:00.000Z"
+    },
+    {
+      "id": "v2",
+      "customerId": "cu1",
+      "type": "Car",
+      "number": "KA01CD5678",
+      "model": "Maruti Swift",
+      "planAmount": 700,
+      "createdAt": "2026-04-02T10:06:00.000Z"
+    },
+    {
+      "id": "v3",
+      "customerId": "cu2",
+      "type": "Bike",
+      "number": "KA02EF9012",
+      "model": "TVS Jupiter",
+      "planAmount": 300,
+      "createdAt": "2026-04-03T10:05:00.000Z"
+    },
+    {
+      "id": "v4",
+      "customerId": "cu3",
+      "type": "Car",
+      "number": "KA03GH3456",
+      "model": "Hyundai i20",
+      "planAmount": 700,
+      "createdAt": "2026-04-05T10:05:00.000Z"
+    },
+    {
+      "id": "v5",
+      "customerId": "cu4",
+      "type": "Bike",
+      "number": "KA04IJ7890",
+      "model": "Bajaj Pulsar",
+      "planAmount": 300,
+      "createdAt": "2026-04-07T10:05:00.000Z"
+    },
+    {
+      "id": "v6",
+      "customerId": "cu5",
+      "type": "Car",
+      "number": "KA05KL1122",
+      "model": "Tata Nexon",
+      "planAmount": 700,
+      "createdAt": "2026-05-11T10:05:00.000Z"
+    }
   ],
   "staff": [
-    { "id": "s1", "clientId": "c1", "name": "Manoj Kumar", "phone": "9911223344", "createdAt": "2026-04-01T09:30:00.000Z" },
-    { "id": "s2", "clientId": "c1", "name": "Deepak Singh", "phone": "9911223355", "createdAt": "2026-04-01T09:35:00.000Z" },
-    { "id": "s3", "clientId": "c2", "name": "Vijay Kumar", "phone": "9922334455", "createdAt": "2026-05-10T09:30:00.000Z" }
+    {
+      "id": "s1",
+      "clientId": "c1",
+      "name": "Manoj Kumar",
+      "phone": "9911223344",
+      "createdAt": "2026-04-01T09:30:00.000Z"
+    },
+    {
+      "id": "s2",
+      "clientId": "c1",
+      "name": "Deepak Singh",
+      "phone": "9911223355",
+      "createdAt": "2026-04-01T09:35:00.000Z"
+    },
+    {
+      "id": "s3",
+      "clientId": "c2",
+      "name": "Vijay Kumar",
+      "phone": "9922334455",
+      "createdAt": "2026-05-10T09:30:00.000Z"
+    }
   ],
   "payments": [
-    { "id": "p16", "vehicleId": "v1", "month": "2026-04", "amount": 300, "method": "Cash", "date": "2026-04-03T11:00:00.000Z" },
-    { "id": "p17", "vehicleId": "v3", "month": "2026-04", "amount": 300, "method": "UPI", "date": "2026-04-04T11:00:00.000Z" },
-    { "id": "p18", "vehicleId": "v5", "month": "2026-04", "amount": 300, "method": "Cash", "date": "2026-04-02T11:00:00.000Z" },
-    { "id": "p1", "vehicleId": "v1", "month": "2026-05", "amount": 300, "method": "Cash", "date": "2026-05-03T11:00:00.000Z" },
-    { "id": "p2", "vehicleId": "v1", "month": "2026-06", "amount": 300, "method": "UPI", "date": "2026-06-02T11:00:00.000Z" },
-    { "id": "p3", "vehicleId": "v1", "month": "2026-07", "amount": 300, "method": "UPI", "date": "2026-07-02T11:00:00.000Z" },
-    { "id": "p4", "vehicleId": "v2", "month": "2026-05", "amount": 700, "method": "Cash", "date": "2026-05-04T11:00:00.000Z" },
-    { "id": "p5", "vehicleId": "v2", "month": "2026-06", "amount": 700, "method": "Cash", "date": "2026-06-03T11:00:00.000Z" },
-    { "id": "p6", "vehicleId": "v3", "month": "2026-05", "amount": 300, "method": "UPI", "date": "2026-05-05T11:00:00.000Z" },
-    { "id": "p7", "vehicleId": "v3", "month": "2026-06", "amount": 300, "method": "UPI", "date": "2026-06-04T11:00:00.000Z" },
-    { "id": "p8", "vehicleId": "v3", "month": "2026-07", "amount": 300, "method": "Cash", "date": "2026-07-03T11:00:00.000Z" },
-    { "id": "p9", "vehicleId": "v4", "month": "2026-05", "amount": 700, "method": "UPI", "date": "2026-05-06T11:00:00.000Z" },
-    { "id": "p10", "vehicleId": "v4", "month": "2026-06", "amount": 700, "method": "Cash", "date": "2026-06-05T11:00:00.000Z" },
-    { "id": "p11", "vehicleId": "v5", "month": "2026-05", "amount": 300, "method": "Cash", "date": "2026-05-02T11:00:00.000Z" },
-    { "id": "p12", "vehicleId": "v5", "month": "2026-06", "amount": 300, "method": "Cash", "date": "2026-06-01T11:00:00.000Z" },
-    { "id": "p13", "vehicleId": "v5", "month": "2026-07", "amount": 300, "method": "UPI", "date": "2026-07-01T11:00:00.000Z" },
-    { "id": "p14", "vehicleId": "v6", "month": "2026-05", "amount": 700, "method": "UPI", "date": "2026-05-07T11:00:00.000Z" },
-    { "id": "p15", "vehicleId": "v6", "month": "2026-06", "amount": 700, "method": "UPI", "date": "2026-06-06T11:00:00.000Z" }
+    {
+      "id": "p16",
+      "vehicleId": "v1",
+      "month": "2026-04",
+      "amount": 300,
+      "method": "Cash",
+      "date": "2026-04-03T11:00:00.000Z"
+    },
+    {
+      "id": "p17",
+      "vehicleId": "v3",
+      "month": "2026-04",
+      "amount": 300,
+      "method": "UPI",
+      "date": "2026-04-04T11:00:00.000Z"
+    },
+    {
+      "id": "p18",
+      "vehicleId": "v5",
+      "month": "2026-04",
+      "amount": 300,
+      "method": "Cash",
+      "date": "2026-04-02T11:00:00.000Z"
+    },
+    {
+      "id": "p1",
+      "vehicleId": "v1",
+      "month": "2026-05",
+      "amount": 300,
+      "method": "Cash",
+      "date": "2026-05-03T11:00:00.000Z"
+    },
+    {
+      "id": "p2",
+      "vehicleId": "v1",
+      "month": "2026-06",
+      "amount": 300,
+      "method": "UPI",
+      "date": "2026-06-02T11:00:00.000Z"
+    },
+    {
+      "id": "p3",
+      "vehicleId": "v1",
+      "month": "2026-07",
+      "amount": 300,
+      "method": "UPI",
+      "date": "2026-07-02T11:00:00.000Z"
+    },
+    {
+      "id": "p4",
+      "vehicleId": "v2",
+      "month": "2026-05",
+      "amount": 700,
+      "method": "Cash",
+      "date": "2026-05-04T11:00:00.000Z"
+    },
+    {
+      "id": "p5",
+      "vehicleId": "v2",
+      "month": "2026-06",
+      "amount": 700,
+      "method": "Cash",
+      "date": "2026-06-03T11:00:00.000Z"
+    },
+    {
+      "id": "p6",
+      "vehicleId": "v3",
+      "month": "2026-05",
+      "amount": 300,
+      "method": "UPI",
+      "date": "2026-05-05T11:00:00.000Z"
+    },
+    {
+      "id": "p7",
+      "vehicleId": "v3",
+      "month": "2026-06",
+      "amount": 300,
+      "method": "UPI",
+      "date": "2026-06-04T11:00:00.000Z"
+    },
+    {
+      "id": "p8",
+      "vehicleId": "v3",
+      "month": "2026-07",
+      "amount": 300,
+      "method": "Cash",
+      "date": "2026-07-03T11:00:00.000Z"
+    },
+    {
+      "id": "p9",
+      "vehicleId": "v4",
+      "month": "2026-05",
+      "amount": 700,
+      "method": "UPI",
+      "date": "2026-05-06T11:00:00.000Z"
+    },
+    {
+      "id": "p10",
+      "vehicleId": "v4",
+      "month": "2026-06",
+      "amount": 700,
+      "method": "Cash",
+      "date": "2026-06-05T11:00:00.000Z"
+    },
+    {
+      "id": "p11",
+      "vehicleId": "v5",
+      "month": "2026-05",
+      "amount": 300,
+      "method": "Cash",
+      "date": "2026-05-02T11:00:00.000Z"
+    },
+    {
+      "id": "p12",
+      "vehicleId": "v5",
+      "month": "2026-06",
+      "amount": 300,
+      "method": "Cash",
+      "date": "2026-06-01T11:00:00.000Z"
+    },
+    {
+      "id": "p13",
+      "vehicleId": "v5",
+      "month": "2026-07",
+      "amount": 300,
+      "method": "UPI",
+      "date": "2026-07-01T11:00:00.000Z"
+    },
+    {
+      "id": "p14",
+      "vehicleId": "v6",
+      "month": "2026-05",
+      "amount": 700,
+      "method": "UPI",
+      "date": "2026-05-07T11:00:00.000Z"
+    },
+    {
+      "id": "p15",
+      "vehicleId": "v6",
+      "month": "2026-06",
+      "amount": 700,
+      "method": "UPI",
+      "date": "2026-06-06T11:00:00.000Z"
+    }
   ]
 }

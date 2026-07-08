@@ -7,10 +7,14 @@ const {
   buildWelcomeMessage,
   buildStaffWelcomeMessage,
   buildPaymentReceiptMessage,
+  buildPasswordSetupPromptMessage,
   buildWaLink,
   buildSmsLink,
   buildOrigin,
   buildLoginLink,
+  buildSetPasswordLink,
+  generateUsername,
+  makeToken,
   isValidPhone,
   isValidVehicleType,
   isValidPlanAmount,
@@ -74,7 +78,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
             const due = computeVehicleDue(vehicle, db.payments, month);
             return { ...vehicle, paid: due.paid, monthsDue: due.dueMonths.length, dueAmount: due.dueAmount };
           });
-        return { ...customer, vehicles };
+        const { password, passwordSetupToken, ...safeCustomer } = customer;
+        return { ...safeCustomer, hasPassword: !!password, vehicles };
       });
 
     const clientVehicleIds = new Set();
@@ -143,9 +148,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
   // ---------- Customers ----------
   app.post('/api/client/customers', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { name, phone, flat, username, vehicle } = req.body || {};
-    if (!name || !phone || !username) {
-      return res.status(400).json({ error: 'name, phone and username are required' });
+    const { name, phone, flat, vehicle } = req.body || {};
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'name and phone are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
@@ -163,9 +168,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
     }
 
     const db = readDB();
-    if (db.customers.some((c) => c.username === username)) {
-      return res.status(409).json({ error: 'Username already taken' });
-    }
+    const existingUsernames = new Set(db.customers.map((c) => c.username));
+    const username = generateUsername(existingUsernames, name);
+    const setupToken = makeToken();
 
     const client = db.clients.find((c) => c.id === clientId);
     const customer = {
@@ -175,6 +180,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
       phone,
       flat: flat || '',
       username,
+      password: null,
+      passwordSetupToken: setupToken,
       createdAt: new Date().toISOString(),
     };
     db.customers.push(customer);
@@ -195,17 +202,19 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
     writeDB(db);
 
+    const setupLink = buildSetPasswordLink(buildOrigin(req), 'customer', setupToken);
     const welcomeMessage = buildWelcomeMessage({
       customerName: customer.name,
       businessName: client.businessName,
       vehicleType: createdVehicle && createdVehicle.type,
       vehicleNumber: createdVehicle && createdVehicle.number,
-      loginUrl: buildLoginLink(buildOrigin(req), 'customer'),
+      setupLink,
     });
 
     res.status(201).json({
-      customer,
+      customer: { ...customer, password: undefined, passwordSetupToken: undefined },
       vehicle: createdVehicle,
+      username,
       welcomeMessage,
       welcomeWaLink: buildWaLink(customer.phone, welcomeMessage),
       welcomeSmsLink: buildSmsLink(customer.phone, welcomeMessage),
@@ -214,9 +223,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
   app.put('/api/client/customers/:id', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { name, phone, flat, username } = req.body || {};
-    if (!name || !phone || !username) {
-      return res.status(400).json({ error: 'name, phone and username are required' });
+    const { name, phone, flat } = req.body || {};
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'name and phone are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
@@ -225,17 +234,35 @@ module.exports = function registerClientRoutes(app, authenticate) {
     const db = readDB();
     const customer = requireOwnCustomer(db, clientId, req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
-    if (db.customers.some((c) => c.username === username && c.id !== customer.id)) {
-      return res.status(409).json({ error: 'Username already taken' });
-    }
 
     customer.name = name;
     customer.phone = phone;
     customer.flat = flat || '';
-    customer.username = username;
 
     writeDB(db);
-    res.json({ customer });
+    res.json({ customer: { ...customer, password: undefined, passwordSetupToken: undefined } });
+  });
+
+  app.post('/api/client/customers/:id/resend-setup', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const db = readDB();
+    const customer = requireOwnCustomer(db, clientId, req.params.id);
+    if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+    const client = db.clients.find((c) => c.id === clientId);
+    const setupToken = makeToken();
+    customer.passwordSetupToken = setupToken;
+    customer.password = null;
+    writeDB(db);
+
+    const setupLink = buildSetPasswordLink(buildOrigin(req), 'customer', setupToken);
+    const message = buildPasswordSetupPromptMessage({ customerName: customer.name, businessName: client.businessName, setupLink });
+
+    res.json({
+      username: customer.username,
+      waLink: buildWaLink(customer.phone, message),
+      smsLink: buildSmsLink(customer.phone, message),
+    });
   });
 
   app.delete('/api/client/customers/:id', authenticate('client'), (req, res) => {

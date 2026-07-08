@@ -19,8 +19,9 @@ can run on the same platform.
 - **Backend:** Node.js + Express, REST API, JSON file database (`data/db.json`)
 - **Frontend:** Single-page vanilla JS app (`public/`) — no framework, calls the
   REST API with `fetch` and a Bearer token
-- **Auth:** Phone number + OTP, for every role including the super admin. There
-  is no password anywhere in the system (see "Auth model" below).
+- **Auth:** Username + password for every role. Usernames are generated
+  automatically (never chosen manually) and new accounts get a WhatsApp/SMS
+  link to set their own password — see "Auth model" below.
 
 The API is fully decoupled from the UI, so a future mobile app (React Native /
 Flutter) can call the same endpoints with no backend changes.
@@ -36,15 +37,13 @@ The server starts on `http://localhost:3000` (set `PORT` to override).
 
 ## Demo credentials
 
-Log in with the phone number below on the matching role tab, tap **Send OTP**,
-then tap WhatsApp or SMS to read the code (no account or gateway needed — the
-code is right there in the pre-filled message) and enter it.
+Log in with the username and password below on the matching role tab.
 
-| Role        | Phone        |
-|-------------|--------------|
-| Super Admin | `9999999999` |
-| Client      | `9876543210` |
-| Customer    | `9812345671` |
+| Role        | Username  | Password      |
+|-------------|-----------|----------------|
+| Super Admin | `admin`   | `password123` |
+| Client      | `praveen` | `password123` |
+| Customer    | `anita`   | `password123` |
 
 The seed data (`data/db.json`) includes two demo client businesses, five
 customers, six vehicles, three staff members, and payment history across
@@ -53,7 +52,7 @@ three months — with a realistic mix of paid/due vehicles for the current month
 ## Project layout
 
 ```
-server.js            Express app, session + OTP auth, static serving
+server.js            Express app, session + password auth, static serving
 db.js                 JSON file read/write helpers
 utils.js              Date/money helpers, message + link builders
 routes/admin.js        Super admin endpoints
@@ -68,58 +67,66 @@ public/app.js             SPA state, rendering, hash-based routing, event wiring
 
 ## Auth model
 
-Every role — super admin, client (business owner), and customer — logs in the
-same way: enter your phone number, request an OTP, and verify it. There is no
-password anywhere in the system, so there's nothing to hash, forget, reset, or
-leak. The OTP itself follows the same tap-to-send pattern as reminders: the
-server generates a 6-digit code and hands back a pre-filled `wa.me`/`sms:`
-link containing it — tapping the link reveals the code (no need to even press
-send), which is then typed back in to verify. Codes expire after 5 minutes and
-are single-use. This works today with zero external accounts; wiring up a real
-SMS/WhatsApp Business API gateway later would let the code be delivered
-automatically instead.
+Every role logs in with a username and a bcrypt-hashed password — but nobody
+ever types their own username or picks their own password at signup time:
+
+- **Usernames are generated server-side** from the person's name (e.g. "Anita
+  Sharma" → `anita`, with a numeric suffix on collision) whenever a business
+  or customer account is created — by the super admin, by a client onboarding
+  a customer, or via the public business-registration request once approved.
+- **New accounts get a "set your password" link**, delivered the same
+  tap-to-send way as reminders: a pre-filled `wa.me`/`sms:` message containing
+  a one-time link to `#/set-password`. The account has `password: null` until
+  that link is used, so nobody (including the super admin) ever sees or sets
+  anyone else's password.
+- **Forgot password** is self-service: verify with username + phone, then set
+  a new password directly (`POST /api/forgot-password`).
+- **Resend the setup link** anytime from the Edit Customer / Edit Business
+  modal if the original message was missed or a reset is needed.
 
 ## API overview
 
-- `POST /api/otp/request` `{ role, phone }` → `{ waLink, smsLink }`
-- `POST /api/otp/verify` `{ role, phone, otp }` → `{ token, role, user }`
+- `POST /api/login` `{ role, username, password }` → `{ token, role, user }`
 - `POST /api/logout`
+- `POST /api/forgot-password` `{ role, username, phone, newPassword }`
+- `POST /api/set-password` `{ role, token, password }`
 - `POST /api/client-requests` — public business signup request
-- **Super admin:** `GET/POST /api/admin/clients`, `POST /api/admin/clients/:id/active`,
+- **Super admin:** `GET/POST /api/admin/clients`, `PUT /api/admin/clients/:id`,
+  `POST /api/admin/clients/:id/active`, `POST /api/admin/clients/:id/resend-setup`,
   `GET /api/admin/client-requests`, `POST /api/admin/client-requests/:id/approve|reject`,
   `GET /api/admin/overview`
 - **Client:** `GET /api/client/data`, `POST/PUT/DELETE /api/client/customers`,
-  vehicle and staff CRUD, `GET/POST /api/client/payments`,
-  `GET /api/client/reminder/:vehicleId`, `GET /api/client/reminders`
+  `POST /api/client/customers/:id/resend-setup`, vehicle and staff CRUD,
+  `GET/POST /api/client/payments`, `GET /api/client/reminder/:vehicleId`,
+  `GET /api/client/reminders`
 - **Customer:** `GET /api/customer/data`
 
-Reminders, welcome messages, and payment receipts are built server-side into
-pre-filled `wa.me` (WhatsApp) and `sms:` deep links, including a real login
-link back to the app (derived from the actual request host, so it works on
-localhost today and automatically on your real domain once deployed) — no
-paid SMS/WhatsApp API required for any of this.
+Reminders, welcome messages, password setup links, and payment receipts are
+all built server-side into pre-filled `wa.me` (WhatsApp) and `sms:` deep
+links — no paid SMS/WhatsApp API required for any of this.
 
 ## Known gaps / before going live
 
-- Session tokens and OTP codes are in-memory and reset on server restart —
-  needs a persistent session/OTP store
+- Session tokens are in-memory and reset on server restart — needs a
+  persistent session store
 - JSON file database won't scale — needs a real database (SQLite to start,
   Postgres for scale)
-- No real WhatsApp Business API / SMS gateway — OTPs and messages open a
-  pre-filled deep link that has to be manually tapped to view/send; a
-  production version could integrate Twilio or the WhatsApp Business API for
-  automatic, out-of-band OTP delivery
+- No real WhatsApp Business API / SMS gateway — password setup links,
+  reminders and receipts open a pre-filled deep link that has to be manually
+  tapped to send; a production version could integrate Twilio or the
+  WhatsApp Business API for automatic, out-of-band delivery
 - No automated recurring reminder scheduling — currently manual, triggered by
   the client tapping a button
 
 ## Roadmap
 
 1. ✅ Web app (current) — 3-role system, arrears-aware dues tracking,
-   password-free OTP login for every role, business registration + approval
-   flow, manual WhatsApp/SMS reminders and receipts
-2. 🔜 Production hardening — persistent sessions/OTP store, real database
+   auto-generated usernames with WhatsApp/SMS password-setup links,
+   business registration + approval flow, manual WhatsApp/SMS reminders and
+   receipts
+2. 🔜 Production hardening — persistent sessions, real database
 3. 🔜 Mobile app (React Native or Flutter) — same API, native push notifications
-4. 🔜 Real SMS/WhatsApp gateway for automatic OTP delivery, plus online
+4. 🔜 Real SMS/WhatsApp gateway for automatic message delivery, plus online
    payment collection (Razorpay/UPI autopay)
 
 ---

@@ -1,5 +1,8 @@
 const { readDB, writeDB, nextId } = require('../db');
-const { sanitizeClient, isValidPhone } = require('../utils');
+const {
+  sanitizeClient, isValidPhone, generateUsername, makeToken,
+  buildOrigin, buildPasswordSetupPromptMessage, buildWaLink, buildSmsLink,
+} = require('../utils');
 
 module.exports = function registerAdminRoutes(app, authenticate) {
   function clientStats(db, client) {
@@ -25,24 +28,26 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   });
 
   app.post('/api/admin/clients', authenticate('superadmin'), (req, res) => {
-    const { businessName, ownerName, username, phone, area } = req.body || {};
-    if (!businessName || !ownerName || !username || !phone) {
-      return res.status(400).json({ error: 'businessName, ownerName, username and phone are required' });
+    const { businessName, ownerName, phone, area } = req.body || {};
+    if (!businessName || !ownerName || !phone) {
+      return res.status(400).json({ error: 'businessName, ownerName and phone are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
     }
 
     const db = readDB();
-    if (db.clients.some((c) => c.username === username)) {
-      return res.status(409).json({ error: 'Username already taken' });
-    }
+    const existingUsernames = new Set(db.clients.map((c) => c.username));
+    const username = generateUsername(existingUsernames, ownerName || businessName);
+    const setupToken = makeToken();
 
     const client = {
       id: nextId(db, 'clients', 'c'),
       businessName,
       ownerName,
       username,
+      password: null,
+      passwordSetupToken: setupToken,
       phone,
       area: area || '',
       active: true,
@@ -51,7 +56,16 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     db.clients.push(client);
     writeDB(db);
 
-    res.status(201).json({ client: clientStats(db, client) });
+    const origin = buildOrigin(req);
+    const setupLink = `${origin}/#/set-password?role=client&token=${setupToken}`;
+    const message = buildPasswordSetupPromptMessage({ customerName: ownerName, businessName: 'WheelCare', setupLink });
+
+    res.status(201).json({
+      client: clientStats(db, client),
+      username,
+      waLink: buildWaLink(phone, message),
+      smsLink: buildSmsLink(phone, message),
+    });
   });
 
   app.post('/api/admin/clients/:id/active', authenticate('superadmin'), (req, res) => {
@@ -70,9 +84,9 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   });
 
   app.put('/api/admin/clients/:id', authenticate('superadmin'), (req, res) => {
-    const { businessName, ownerName, username, phone, area } = req.body || {};
-    if (!businessName || !ownerName || !username || !phone) {
-      return res.status(400).json({ error: 'businessName, ownerName, username and phone are required' });
+    const { businessName, ownerName, phone, area } = req.body || {};
+    if (!businessName || !ownerName || !phone) {
+      return res.status(400).json({ error: 'businessName, ownerName and phone are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
@@ -81,18 +95,34 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     const db = readDB();
     const client = db.clients.find((c) => c.id === req.params.id);
     if (!client) return res.status(404).json({ error: 'Client not found' });
-    if (db.clients.some((c) => c.username === username && c.id !== client.id)) {
-      return res.status(409).json({ error: 'Username already taken' });
-    }
 
     client.businessName = businessName;
     client.ownerName = ownerName;
-    client.username = username;
     client.phone = phone;
     client.area = area || '';
 
     writeDB(db);
     res.json({ client: clientStats(db, client) });
+  });
+
+  app.post('/api/admin/clients/:id/resend-setup', authenticate('superadmin'), (req, res) => {
+    const db = readDB();
+    const client = db.clients.find((c) => c.id === req.params.id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    const setupToken = makeToken();
+    client.passwordSetupToken = setupToken;
+    writeDB(db);
+
+    const origin = buildOrigin(req);
+    const setupLink = `${origin}/#/set-password?role=client&token=${setupToken}`;
+    const message = buildPasswordSetupPromptMessage({ customerName: client.ownerName, businessName: 'WheelCare', setupLink });
+
+    res.json({
+      username: client.username,
+      waLink: buildWaLink(client.phone, message),
+      smsLink: buildSmsLink(client.phone, message),
+    });
   });
 
   app.delete('/api/admin/clients/:id', authenticate('superadmin'), (req, res) => {
@@ -124,15 +154,18 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     const db = readDB();
     const request = db.clientRequests.find((r) => r.id === req.params.id && r.status === 'pending');
     if (!request) return res.status(404).json({ error: 'Request not found' });
-    if (db.clients.some((c) => c.username === request.username)) {
-      return res.status(409).json({ error: 'Username already taken by an existing business' });
-    }
+
+    const existingUsernames = new Set(db.clients.map((c) => c.username));
+    const username = generateUsername(existingUsernames, request.ownerName || request.businessName);
+    const setupToken = makeToken();
 
     const client = {
       id: nextId(db, 'clients', 'c'),
       businessName: request.businessName,
       ownerName: request.ownerName,
-      username: request.username,
+      username,
+      password: null,
+      passwordSetupToken: setupToken,
       phone: request.phone,
       area: request.area,
       active: true,
@@ -141,7 +174,17 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     db.clients.push(client);
     request.status = 'approved';
     writeDB(db);
-    res.json({ client: clientStats(db, client) });
+
+    const origin = buildOrigin(req);
+    const setupLink = `${origin}/#/set-password?role=client&token=${setupToken}`;
+    const message = buildPasswordSetupPromptMessage({ customerName: client.ownerName, businessName: 'WheelCare', setupLink });
+
+    res.json({
+      client: clientStats(db, client),
+      username,
+      waLink: buildWaLink(client.phone, message),
+      smsLink: buildSmsLink(client.phone, message),
+    });
   });
 
   app.post('/api/admin/client-requests/:id/reject', authenticate('superadmin'), (req, res) => {
