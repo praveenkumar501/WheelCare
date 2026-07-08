@@ -46,6 +46,10 @@
     clientComplaints: null,
     customerComplaints: null,
     customerSearch: '',
+    staffSearch: '',
+    paymentsSearch: '',
+    reportsSearch: '',
+    adminBusinessSearch: '',
   };
 
   const $app = document.getElementById('app');
@@ -566,26 +570,19 @@
     if (state.clientTab === 'profile') return renderClientProfile();
   }
 
-  async function renderClientReports() {
-    const content = document.getElementById('content');
-    content.innerHTML = '<div class="loading-spinner">Loading…</div>';
-    try {
-      const result = await api('/client/complaints');
-      state.clientComplaints = result.complaints;
-    } catch (err) {
-      toast(err.message, 'error');
-      return;
-    }
+  function renderReportsList() {
+    const list = document.getElementById('reports-list');
     const complaints = state.clientComplaints || [];
-    const openCount = complaints.filter((c) => c.status !== 'resolved').length;
+    const q = state.reportsSearch.trim().toLowerCase();
+    const filtered = q
+      ? complaints.filter((c) => c.customerName.toLowerCase().includes(q) || c.vehicleNumber.toLowerCase().includes(q) || c.description.toLowerCase().includes(q))
+      : complaints;
 
-    content.innerHTML =
-      '<div class="section-header"><h3>Service Reports<span class="count-badge">' + openCount + ' open</span></h3></div>' +
-      (complaints.length === 0
-        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📷</div>No reports from customers yet.</div></div>'
-        : complaints.map((c) => complaintCardHtml(c, { showCustomer: true, canRespond: c.status !== 'resolved' })).join(''));
+    list.innerHTML = filtered.length === 0
+      ? '<div class="card"><div class="empty-state"><div class="empty-icon">' + (q ? '🔍' : '📷') + '</div>' + (q ? 'No reports match your search.' : 'No reports from customers yet.') + '</div></div>'
+      : filtered.map((c) => complaintCardHtml(c, { showCustomer: true, canRespond: c.status !== 'resolved' })).join('');
 
-    content.querySelectorAll('.complaint-respond-form').forEach((form) => {
+    list.querySelectorAll('.complaint-respond-form').forEach((form) => {
       const photoBox = bindMultiPhotoInput(form.querySelector('.respond-photo-input'), form.querySelector('.respond-photo-preview'));
 
       form.addEventListener('submit', async (e) => {
@@ -603,6 +600,34 @@
         }
       });
     });
+  }
+
+  async function renderClientReports() {
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading-spinner">Loading…</div>';
+    try {
+      const result = await api('/client/complaints');
+      state.clientComplaints = result.complaints;
+    } catch (err) {
+      toast(err.message, 'error');
+      return;
+    }
+    const complaints = state.clientComplaints || [];
+    const openCount = complaints.filter((c) => c.status !== 'resolved').length;
+
+    content.innerHTML =
+      '<div class="section-header"><h3>Service Reports<span class="count-badge">' + openCount + ' open</span></h3></div>' +
+      (complaints.length > 1 ? '<div class="field"><input type="search" id="reports-search" placeholder="Search by customer, vehicle number or description…" value="' + esc(state.reportsSearch) + '" /></div>' : '') +
+      '<div id="reports-list"></div>';
+
+    renderReportsList();
+    const reportsSearchInput = document.getElementById('reports-search');
+    if (reportsSearchInput) {
+      reportsSearchInput.addEventListener('input', (e) => {
+        state.reportsSearch = e.target.value;
+        renderReportsList();
+      });
+    }
   }
 
   function renderClientProfile() {
@@ -1216,13 +1241,18 @@
       state.staff = [];
     }
     const staff = state.staff;
+    const q = state.staffSearch.trim().toLowerCase();
+    const filteredStaff = q ? staff.filter((s) => s.name.toLowerCase().includes(q) || s.phone.includes(q)) : staff;
     content.innerHTML =
       '<div class="section-header"><h3>Staff<span class="count-badge">' + staff.length + '</span></h3>' +
         '<button class="btn btn-primary btn-sm" id="add-staff-btn">+ Add Staff</button>' +
       '</div>' +
+      (staff.length > 1 ? '<div class="field"><input type="search" id="staff-search" placeholder="Search by name or phone…" value="' + esc(state.staffSearch) + '" /></div>' : '') +
       (staff.length === 0
         ? '<div class="card"><div class="empty-state"><div class="empty-icon">🧰</div>No staff members yet.</div></div>'
-        : '<div class="cards-grid">' + staff.map((s) =>
+        : filteredStaff.length === 0
+        ? '<div class="card"><div class="empty-state"><div class="empty-icon">🔍</div>No staff match your search.</div></div>'
+        : '<div class="cards-grid">' + filteredStaff.map((s) =>
             '<div class="card staff-card"><div class="staff-avatar">' + esc(initials(s.name)) + '</div>' +
             '<div class="staff-info"><div class="sr-name">' + esc(s.name) + '</div><div class="sr-phone">' + esc(s.phone) + '</div></div>' +
             '<div class="cc-actions">' +
@@ -1230,6 +1260,16 @@
               '<button class="icon-action-btn danger" title="Remove staff" data-remove-staff="' + s.id + '">' + DELETE_ICON + '</button>' +
             '</div></div>'
           ).join('') + '</div>');
+
+    const staffSearchInput = document.getElementById('staff-search');
+    if (staffSearchInput) {
+      staffSearchInput.addEventListener('input', (e) => {
+        state.staffSearch = e.target.value;
+        renderClientStaff();
+      });
+      staffSearchInput.focus();
+      staffSearchInput.selectionStart = staffSearchInput.selectionEnd = staffSearchInput.value.length;
+    }
 
     document.getElementById('add-staff-btn').addEventListener('click', () => {
       const html =
@@ -1294,6 +1334,25 @@
     });
   }
 
+  function renderPaymentsList() {
+    const list = document.getElementById('payments-list');
+    const payments = state.payments;
+    const q = state.paymentsSearch.trim().toLowerCase();
+    const filtered = q ? payments.filter((p) => p.customerName.toLowerCase().includes(q) || p.vehicleNumber.toLowerCase().includes(q)) : payments;
+
+    if (payments.length === 0) {
+      list.innerHTML = '<div class="card"><div class="empty-state"><div class="empty-icon">🧾</div>No payments recorded yet.</div></div>';
+    } else if (filtered.length === 0) {
+      list.innerHTML = '<div class="card"><div class="empty-state"><div class="empty-icon">🔍</div>No payments match your search.</div></div>';
+    } else {
+      list.innerHTML = monthGroupedPaymentsHtml(filtered, (p) =>
+        '<div class="payment-row clickable-row" data-open-customer="' + vehicleCustomerId(p.vehicleId) + '"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+        '<div class="pr-sub">' + formatDate(p.date) + '</div></div>' +
+        '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
+      );
+    }
+  }
+
   async function renderClientPayments() {
     const content = document.getElementById('content');
     content.innerHTML = '<div class="loading-spinner">Loading…</div>';
@@ -1303,7 +1362,6 @@
       toast(err.message, 'error');
       state.payments = [];
     }
-    const payments = state.payments;
 
     content.innerHTML =
       '<div class="section-header"><h3>Record a Payment</h3></div>' +
@@ -1319,12 +1377,18 @@
         '<div class="field"><label>Method</label><select name="method" required><option value="Cash">Cash</option><option value="UPI">UPI</option></select></div>' +
         '<button type="submit" class="btn btn-primary btn-block">Record Payment</button>' +
       '</form></div>' +
-      '<div class="section-header"><h3>Payment History<span class="count-badge">' + payments.length + '</span></h3></div>' +
-      monthGroupedPaymentsHtml(payments, (p) =>
-        '<div class="payment-row clickable-row" data-open-customer="' + vehicleCustomerId(p.vehicleId) + '"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
-        '<div class="pr-sub">' + formatDate(p.date) + '</div></div>' +
-        '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
-      );
+      '<div class="section-header"><h3>Payment History<span class="count-badge" id="payments-count">' + state.payments.length + '</span></h3></div>' +
+      (state.payments.length > 1 ? '<div class="field"><input type="search" id="payments-search" placeholder="Search by customer or vehicle number…" value="' + esc(state.paymentsSearch) + '" /></div>' : '') +
+      '<div id="payments-list"></div>';
+
+    renderPaymentsList();
+    const paymentsSearchInput = document.getElementById('payments-search');
+    if (paymentsSearchInput) {
+      paymentsSearchInput.addEventListener('input', (e) => {
+        state.paymentsSearch = e.target.value;
+        renderPaymentsList();
+      });
+    }
 
     const customerSelect = document.getElementById('pay-customer');
     const vehicleSelect = document.getElementById('pay-vehicle');
@@ -1652,6 +1716,64 @@
       '</div>';
   }
 
+  function renderAdminBusinessesList() {
+    const list = document.getElementById('admin-biz-list');
+    const q = state.adminBusinessSearch.trim().toLowerCase();
+    const clients = q
+      ? state.adminClients.filter((c) => c.businessName.toLowerCase().includes(q) || c.ownerName.toLowerCase().includes(q) || (c.area || '').toLowerCase().includes(q))
+      : state.adminClients;
+
+    list.innerHTML = state.adminClients.length === 0
+      ? '<div class="card"><div class="empty-state"><div class="empty-icon">🏢</div>No client businesses onboarded yet.</div></div>'
+      : clients.length === 0
+      ? '<div class="card"><div class="empty-state"><div class="empty-icon">🔍</div>No businesses match your search.</div></div>'
+      : '<div class="cards-grid">' + clients.map((c) =>
+          '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(c.businessName) +
+          ' <span class="chip ' + (c.active === false ? 'chip-due' : 'chip-paid') + '">' + (c.active === false ? 'Inactive' : 'Active') + '</span></div>' +
+          '<div class="cc-meta">' + esc(c.ownerName) + ' · ' + esc(c.area || '') + '</div></div>' +
+          '<div class="cc-actions">' +
+            '<button class="icon-action-btn" title="Edit business" data-edit-client="' + c.id + '">' + EDIT_ICON + '</button>' +
+            '<button class="icon-action-btn danger" title="Delete business" data-delete-client="' + c.id + '" data-business-name="' + esc(c.businessName) + '">' + DELETE_ICON + '</button>' +
+          '</div></div>' +
+          '<div class="cc-vehicle-mix">' + vehicleIconHtml('Bike', 'md') + vehicleIconHtml('Car', 'md') + '<span class="cc-vehicle-mix-label">' + c.vehicleCount + ' vehicles on the road</span></div>' +
+          '<div class="cc-vehicles">' +
+            '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">👥</span><div class="vr-name">' + c.customerCount + ' customers</div></div>' +
+            '<span class="vr-amount">' + c.vehicleCount + ' vehicles</span></div>' +
+            '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">💰</span><div class="vr-name">Revenue collected</div></div>' +
+            '<span class="vr-amount">' + money(c.revenue) + '</span></div>' +
+          '</div>' +
+          '<button class="btn btn-outline btn-sm btn-block" style="margin-top:10px;" data-toggle-active="' + c.id + '" data-currently-active="' + (c.active !== false) + '">' +
+            (c.active === false ? 'Activate Business' : 'Deactivate Business') +
+          '</button></div>'
+        ).join('') + '</div>';
+
+    list.querySelectorAll('[data-toggle-active]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const currentlyActive = btn.dataset.currentlyActive === 'true';
+        try {
+          await api('/admin/clients/' + btn.dataset.toggleActive + '/active', {
+            method: 'POST',
+            body: JSON.stringify({ active: !currentlyActive }),
+          });
+          toast(currentlyActive ? 'Business deactivated' : 'Business activated', 'success');
+          await loadAdminData();
+          renderAdminTab();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+    list.querySelectorAll('[data-edit-client]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const client = state.adminClients.find((c) => c.id === btn.dataset.editClient);
+        if (client) openEditClientModal(client);
+      });
+    });
+    list.querySelectorAll('[data-delete-client]').forEach((btn) => {
+      btn.addEventListener('click', () => deleteClient(btn.dataset.deleteClient, btn.dataset.businessName));
+    });
+  }
+
   function renderAdminBusinesses() {
     const content = document.getElementById('content');
 
@@ -1669,27 +1791,17 @@
       '<div class="section-header"><h3>Client Businesses<span class="count-badge">' + state.adminClients.length + '</span></h3>' +
         '<button class="btn btn-primary btn-sm" id="add-client-btn">+ Add Business</button>' +
       '</div>' +
-      (state.adminClients.length === 0
-        ? '<div class="card"><div class="empty-state"><div class="empty-icon">🏢</div>No client businesses onboarded yet.</div></div>'
-        : '<div class="cards-grid">' + state.adminClients.map((c) =>
-            '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(c.businessName) +
-            ' <span class="chip ' + (c.active === false ? 'chip-due' : 'chip-paid') + '">' + (c.active === false ? 'Inactive' : 'Active') + '</span></div>' +
-            '<div class="cc-meta">' + esc(c.ownerName) + ' · ' + esc(c.area || '') + '</div></div>' +
-            '<div class="cc-actions">' +
-              '<button class="icon-action-btn" title="Edit business" data-edit-client="' + c.id + '">' + EDIT_ICON + '</button>' +
-              '<button class="icon-action-btn danger" title="Delete business" data-delete-client="' + c.id + '" data-business-name="' + esc(c.businessName) + '">' + DELETE_ICON + '</button>' +
-            '</div></div>' +
-            '<div class="cc-vehicle-mix">' + vehicleIconHtml('Bike', 'md') + vehicleIconHtml('Car', 'md') + '<span class="cc-vehicle-mix-label">' + c.vehicleCount + ' vehicles on the road</span></div>' +
-            '<div class="cc-vehicles">' +
-              '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">👥</span><div class="vr-name">' + c.customerCount + ' customers</div></div>' +
-              '<span class="vr-amount">' + c.vehicleCount + ' vehicles</span></div>' +
-              '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">💰</span><div class="vr-name">Revenue collected</div></div>' +
-              '<span class="vr-amount">' + money(c.revenue) + '</span></div>' +
-            '</div>' +
-            '<button class="btn btn-outline btn-sm btn-block" style="margin-top:10px;" data-toggle-active="' + c.id + '" data-currently-active="' + (c.active !== false) + '">' +
-              (c.active === false ? 'Activate Business' : 'Deactivate Business') +
-            '</button></div>'
-          ).join('') + '</div>');
+      (state.adminClients.length > 1 ? '<div class="field"><input type="search" id="admin-biz-search" placeholder="Search by business name, owner or area…" value="' + esc(state.adminBusinessSearch) + '" /></div>' : '') +
+      '<div id="admin-biz-list"></div>';
+
+    renderAdminBusinessesList();
+    const adminBizSearchInput = document.getElementById('admin-biz-search');
+    if (adminBizSearchInput) {
+      adminBizSearchInput.addEventListener('input', (e) => {
+        state.adminBusinessSearch = e.target.value;
+        renderAdminBusinessesList();
+      });
+    }
 
     content.querySelectorAll('[data-approve-request]').forEach((btn) => {
       btn.addEventListener('click', async () => {
@@ -1715,23 +1827,6 @@
         }
       });
     });
-    content.querySelectorAll('[data-toggle-active]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const currentlyActive = btn.dataset.currentlyActive === 'true';
-        try {
-          await api('/admin/clients/' + btn.dataset.toggleActive + '/active', {
-            method: 'POST',
-            body: JSON.stringify({ active: !currentlyActive }),
-          });
-          toast(currentlyActive ? 'Business deactivated' : 'Business activated', 'success');
-          await loadAdminData();
-          renderAdminTab();
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
-    });
-
     document.getElementById('add-client-btn').addEventListener('click', () => {
       const html =
         '<form id="add-client-form">' +
@@ -1765,15 +1860,6 @@
       });
     });
 
-    content.querySelectorAll('[data-edit-client]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const client = state.adminClients.find((c) => c.id === btn.dataset.editClient);
-        if (client) openEditClientModal(client);
-      });
-    });
-    content.querySelectorAll('[data-delete-client]').forEach((btn) => {
-      btn.addEventListener('click', () => deleteClient(btn.dataset.deleteClient, btn.dataset.businessName));
-    });
   }
 
   function openEditClientModal(client) {
