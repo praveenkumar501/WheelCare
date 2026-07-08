@@ -52,6 +52,7 @@
   const $toasts = document.getElementById('toast-container');
 
   // ---------------- API helper ----------------
+  let sessionExpiring = false;
   async function api(path, opts) {
     opts = opts || {};
     const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
@@ -59,11 +60,26 @@
     const res = await fetch(API + path, Object.assign({}, opts, { headers }));
     let data = {};
     try { data = await res.json(); } catch (e) { /* no body */ }
+    if (res.status === 401 && state.token) {
+      if (!sessionExpiring) {
+        sessionExpiring = true;
+        setTimeout(() => { sessionExpiring = false; }, 1000);
+        logout();
+      }
+      throw new Error('Your session expired — please log in again.');
+    }
     if (!res.ok) throw new Error(data.error || 'Something went wrong');
     return data;
   }
 
+  let lastToastKey = '';
+  let lastToastAt = 0;
   function toast(message, type) {
+    const now = Date.now();
+    const key = message + '|' + type;
+    if (key === lastToastKey && now - lastToastAt < 1500) return;
+    lastToastKey = key;
+    lastToastAt = now;
     const el = document.createElement('div');
     el.className = 'toast ' + (type || '');
     el.textContent = message;
@@ -190,8 +206,12 @@
   ];
 
   const HERO_ILLUSTRATION_HTML =
-    '<div class="vehicle-tile bike-tile"><span class="speed-lines"></span><span class="vehicle-emoji">🏍️</span></div>' +
-    '<div class="vehicle-tile car-tile"><span class="speed-lines"></span><span class="vehicle-emoji">🏎️</span></div>';
+    '<div class="vehicle-tile bike-tile"><img src="/images/hero-bike-wash.jpg" alt="Motorcycle being washed" loading="lazy" /></div>' +
+    '<div class="vehicle-tile car-tile"><img src="/images/hero-car-wash.jpg" alt="Car being washed" loading="lazy" /></div>';
+
+  const TRUST_BADGES = [
+    '✓ No setup fees', '✓ No messaging API costs', '✓ Live in under 5 minutes',
+  ];
 
   function renderLanding() {
     $app.innerHTML =
@@ -201,15 +221,20 @@
           '<button class="btn btn-outline-light btn-sm" id="nav-login-btn">Log In</button>' +
         '</nav>' +
         '<section class="landing-hero">' +
+          '<div class="landing-kicker">VEHICLE CARE SUBSCRIPTION PLATFORM</div>' +
           '<h1 class="landing-headline">Run your <span class="grad-text">vehicle care</span> subscription business like a pro</h1>' +
           '<p class="landing-sub">Track monthly dues, send WhatsApp reminders with one tap, and manage customers, staff and payments — all from one dashboard.</p>' +
           '<div class="landing-cta-row">' +
             '<button class="btn btn-primary" id="get-started-btn">Get Started Free</button>' +
             '<button class="btn btn-outline-light" id="hero-login-btn">I already have an account</button>' +
           '</div>' +
+          '<div class="trust-badge-row">' +
+            TRUST_BADGES.map((t) => '<span class="trust-badge">' + esc(t) + '</span>').join('') +
+          '</div>' +
           '<div class="hero-stage"><div class="hero-illustration">' + HERO_ILLUSTRATION_HTML + '</div></div>' +
         '</section>' +
         '<section class="landing-steps">' +
+          '<div class="landing-kicker center">GET STARTED</div>' +
           '<h2 class="landing-section-title">How it works</h2>' +
           '<div class="steps-grid">' +
             LANDING_STEPS.map((s) =>
@@ -219,12 +244,20 @@
           '</div>' +
         '</section>' +
         '<section class="landing-features">' +
+          '<div class="landing-kicker center">CAPABILITIES</div>' +
           '<h2 class="landing-section-title">Everything you need</h2>' +
           '<div class="feature-grid">' +
             LANDING_FEATURES.map((f) =>
               '<div class="glass-card feature-card"><div class="feature-icon">' + f.icon + '</div>' +
               '<h3>' + esc(f.title) + '</h3><p>' + esc(f.body) + '</p></div>'
             ).join('') +
+          '</div>' +
+        '</section>' +
+        '<section class="landing-cta-band">' +
+          '<div class="glass-card cta-band-card">' +
+            '<h2>Ready to run your business on WheelCare?</h2>' +
+            '<p>Set up your business, add your first customer, and send your first reminder — all in the next five minutes.</p>' +
+            '<button class="btn btn-primary" id="cta-band-btn">Get Started Free</button>' +
           '</div>' +
         '</section>' +
         '<footer class="landing-footer">' +
@@ -238,6 +271,7 @@
     document.getElementById('nav-login-btn').addEventListener('click', () => goToLogin('client'));
     document.getElementById('hero-login-btn').addEventListener('click', () => goToLogin('client'));
     document.getElementById('get-started-btn').addEventListener('click', () => goToLogin('client'));
+    document.getElementById('cta-band-btn').addEventListener('click', () => goToLogin('client'));
     document.getElementById('admin-login-btn').addEventListener('click', () => goToLogin('superadmin'));
   }
 
@@ -430,6 +464,7 @@
   ];
   const CUSTOMER_TABS = [
     { id: 'vehicles', icon: '🏠', label: 'Vehicles' },
+    { id: 'payments', icon: '💳', label: 'Payments' },
     { id: 'reports', icon: '📷', label: 'Reports' },
   ];
 
@@ -454,6 +489,11 @@
           '<span class="nav-icon">' + t.icon + '</span><span>' + t.label + '</span>' +
         '</button>'
       ).join('') +
+      '<div class="sidebar-footer">' +
+        '<div class="sidebar-footer-illustration"><span>🏍️</span><span>🚗</span></div>' +
+        '<div class="sidebar-footer-brand">Wheel<span class="grad-text">Care</span></div>' +
+        '<div class="sidebar-footer-tag">Vehicle care, simplified.</div>' +
+      '</div>' +
     '</nav>';
   }
 
@@ -475,6 +515,7 @@
     $app.innerHTML = shellHtml('Business Dashboard', CLIENT_TABS, state.clientTab);
     bindShellEvents(renderClientTab, 'clientTab');
     await loadClientData();
+    if (!state.token) return;
     renderClientTab();
   }
 
@@ -483,7 +524,6 @@
       state.data = await api('/client/data');
     } catch (err) {
       toast(err.message, 'error');
-      if (/unauthorized/i.test(err.message)) logout();
     }
   }
 
@@ -626,6 +666,7 @@
         ovCardHtml('👥', d.totalCustomers, 'Customers') +
         ovCardHtml('🚗', d.totalVehicles, 'Vehicles') +
       '</div>' +
+      reminderDigestHtml(d.pendingVehicles) +
       '<div class="section-header"><h3>Payment Due<span class="count-badge">' + d.pendingVehicles.length + '</span></h3>' +
         (d.pendingVehicles.length ? '<button class="btn btn-outline btn-sm" id="remind-all-btn">Remind All</button>' : '') +
       '</div>' +
@@ -661,6 +702,27 @@
     });
   }
 
+  function reminderDigestHtml(pendingVehicles) {
+    if (pendingVehicles.length === 0) return '';
+    const notReminded = pendingVehicles.filter((v) => !v.remindedToday).length;
+    if (notReminded === 0) {
+      return (
+        '<div class="reminder-digest done">' +
+          '<div class="rd-icon">✅</div>' +
+          '<div><div class="rd-title">All caught up</div>' +
+          '<div class="rd-sub">Every overdue customer has already been reminded today.</div></div>' +
+        '</div>'
+      );
+    }
+    return (
+      '<div class="reminder-digest">' +
+        '<div class="rd-icon">🔔</div>' +
+        '<div><div class="rd-title">' + notReminded + (notReminded === 1 ? ' reminder' : ' reminders') + ' ready to send today</div>' +
+        '<div class="rd-sub">We\'ve worked out who\'s overdue — tap once to send them all.</div></div>' +
+      '</div>'
+    );
+  }
+
   function pendingItemHtml(v) {
     const monthsBadge = v.monthsDue > 1 ? ' <span class="chip chip-amber">' + v.monthsDue + ' months</span>' : '';
     return (
@@ -668,10 +730,12 @@
         '<div class="pending-info" style="display:flex; align-items:center;">' + vehicleIconHtml(v.vehicleType, 'md') +
         '<div><div class="pi-name">' + esc(v.customerName) + '</div>' +
         '<div class="pi-sub">' + esc(v.vehicleType) + ' · ' + esc(v.vehicleNumber) + ' · ' + esc(v.flat || '') + ' · ' + money(v.amount) + monthsBadge + '</div></div></div>' +
-        '<div class="pending-actions">' +
-          '<button class="icon-round wa" title="WhatsApp reminder" data-remind-wa="' + v.vehicleId + '">💬</button>' +
-          '<button class="icon-round sms" title="SMS reminder" data-remind-sms="' + v.vehicleId + '">✉️</button>' +
-        '</div>' +
+        (v.remindedToday
+          ? '<span class="chip chip-paid">✓ Sent today</span>'
+          : '<div class="pending-actions">' +
+              '<button class="icon-round wa" title="WhatsApp reminder" data-remind-wa="' + v.vehicleId + '">💬</button>' +
+              '<button class="icon-round sms" title="SMS reminder" data-remind-sms="' + v.vehicleId + '">✉️</button>' +
+            '</div>') +
       '</div>'
     );
   }
@@ -1161,6 +1225,7 @@
     $app.innerHTML = shellHtml('My Vehicles', CUSTOMER_TABS, state.customerTab);
     bindShellEvents(renderCustomerTab, 'customerTab');
     await loadCustomerData();
+    if (!state.token) return;
     renderCustomerTab();
   }
 
@@ -1169,7 +1234,6 @@
       state.data = await api('/customer/data');
     } catch (err) {
       toast(err.message, 'error');
-      if (/unauthorized/i.test(err.message)) logout();
     }
   }
 
@@ -1179,6 +1243,7 @@
       nav.querySelectorAll('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === state.customerTab));
     }
     if (state.customerTab === 'reports') return renderCustomerReports();
+    if (state.customerTab === 'payments') return renderCustomerPayments();
     return renderCustomerDashboard();
   }
 
@@ -1213,7 +1278,17 @@
           '<div class="provider-meta">' + esc(d.client.ownerName) + (d.client.area ? ' · ' + esc(d.client.area) : '') + '</div></div>' +
         '</div>' +
         '<button class="btn btn-navy btn-block" id="contact-btn" style="margin-top:14px;">💬 Message on WhatsApp</button>' +
-      '</div>' +
+      '</div>';
+
+    document.getElementById('contact-btn').addEventListener('click', () => window.open(d.contactWaLink, '_blank'));
+  }
+
+  function renderCustomerPayments() {
+    const content = document.getElementById('content');
+    const d = state.data;
+    if (!d) { content.innerHTML = '<div class="loading-spinner">Loading…</div>'; return; }
+
+    content.innerHTML =
       '<div class="section-header"><h3>Payment History<span class="count-badge">' + d.paymentHistory.length + '</span></h3></div>' +
       '<div class="card">' +
         (d.paymentHistory.length === 0
@@ -1224,8 +1299,6 @@
               '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
             ).join('')) +
       '</div>';
-
-    document.getElementById('contact-btn').addEventListener('click', () => window.open(d.contactWaLink, '_blank'));
   }
 
   function readFileAsDataUrl(file) {
@@ -1275,6 +1348,7 @@
     const content = document.getElementById('content');
     content.innerHTML = '<div class="loading-spinner">Loading…</div>';
     await loadCustomerComplaints();
+    if (!state.token) return;
     const complaints = state.customerComplaints || [];
 
     content.innerHTML =
@@ -1357,6 +1431,7 @@
     $app.innerHTML = shellHtml('Platform Overview', ADMIN_TABS, state.adminTab);
     bindShellEvents(renderAdminTab, 'adminTab');
     await loadAdminData();
+    if (!state.token) return;
     renderAdminTab();
   }
 
@@ -1368,7 +1443,6 @@
       state.clientRequests = requests.requests;
     } catch (err) {
       toast(err.message, 'error');
-      if (/unauthorized/i.test(err.message)) logout();
     }
   }
 

@@ -96,6 +96,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
       for (const vehicle of customer.vehicles) {
         if (!vehicle.paid) {
           totalPending += vehicle.dueAmount;
+          const remindedToday = vehicle.lastReminderAt
+            && new Date(vehicle.lastReminderAt).toDateString() === new Date().toDateString();
           pendingVehicles.push({
             customerId: customer.id,
             customerName: customer.name,
@@ -107,6 +109,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
             model: vehicle.model,
             amount: vehicle.dueAmount,
             monthsDue: vehicle.monthsDue,
+            remindedToday: !!remindedToday,
           });
         }
       }
@@ -515,6 +518,10 @@ module.exports = function registerClientRoutes(app, authenticate) {
     const month = getCurrentMonth();
     const due = computeVehicleDue(vehicle, db.payments, month);
     if (due.paid) return res.status(400).json({ error: 'This vehicle has no pending dues' });
+
+    vehicle.lastReminderAt = new Date().toISOString();
+    writeDB(db);
+
     res.json({ reminder: buildReminder(client, customer, vehicle, due, buildOrigin(req)) });
   });
 
@@ -527,13 +534,18 @@ module.exports = function registerClientRoutes(app, authenticate) {
     const origin = buildOrigin(req);
     const customers = db.customers.filter((c) => c.clientId === clientId);
     const reminders = [];
+    const now = new Date().toISOString();
     for (const customer of customers) {
       const vehicles = db.vehicles.filter((v) => v.customerId === customer.id);
       for (const vehicle of vehicles) {
         const due = computeVehicleDue(vehicle, db.payments, month);
-        if (!due.paid) reminders.push(buildReminder(client, customer, vehicle, due, origin));
+        if (!due.paid) {
+          reminders.push(buildReminder(client, customer, vehicle, due, origin));
+          vehicle.lastReminderAt = now;
+        }
       }
     }
+    writeDB(db);
 
     res.json({ reminders });
   });

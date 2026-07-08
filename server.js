@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const { readDB } = require('./db');
 const { makeToken, sanitizeClient, sanitizeCustomer, comparePassword } = require('./utils');
 
@@ -11,7 +12,28 @@ app.use(express.json({ limit: '3mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // token -> { role, id, clientId }
-const sessions = new Map();
+// Persisted to disk so sessions survive a server sleep/wake cycle (e.g. Render's
+// free-tier idle spin-down); a fresh deploy still requires logging in again.
+const SESSIONS_PATH = path.join(__dirname, 'data', 'sessions.json');
+
+function loadSessions() {
+  try {
+    const raw = fs.readFileSync(SESSIONS_PATH, 'utf8');
+    return new Map(Object.entries(JSON.parse(raw)));
+  } catch (e) {
+    return new Map();
+  }
+}
+
+function saveSessions() {
+  try {
+    fs.writeFileSync(SESSIONS_PATH, JSON.stringify(Object.fromEntries(sessions)));
+  } catch (e) {
+    // best-effort; an in-memory-only session is still better than a crash
+  }
+}
+
+const sessions = loadSessions();
 
 function authenticate(...roles) {
   return (req, res, next) => {
@@ -39,6 +61,7 @@ app.post('/api/login', (req, res) => {
     if (db.superadmin.username === username && comparePassword(password, db.superadmin.password)) {
       const token = makeToken();
       sessions.set(token, { role: 'superadmin', id: 'superadmin' });
+      saveSessions();
       return res.json({ token, role: 'superadmin', user: { name: 'Super Admin', username } });
     }
   } else if (role === 'client') {
@@ -49,6 +72,7 @@ app.post('/api/login', (req, res) => {
       }
       const token = makeToken();
       sessions.set(token, { role: 'client', id: client.id });
+      saveSessions();
       return res.json({ token, role: 'client', user: sanitizeClient(client) });
     }
   } else if (role === 'customer') {
@@ -60,6 +84,7 @@ app.post('/api/login', (req, res) => {
       }
       const token = makeToken();
       sessions.set(token, { role: 'customer', id: customer.id, clientId: customer.clientId });
+      saveSessions();
       return res.json({ token, role: 'customer', user: sanitizeCustomer(customer) });
     }
   } else {
@@ -73,6 +98,7 @@ app.post('/api/logout', authenticate(), (req, res) => {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.slice(7);
   sessions.delete(token);
+  saveSessions();
   res.json({ ok: true });
 });
 
