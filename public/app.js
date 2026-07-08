@@ -131,6 +131,16 @@
     return overlay;
   }
 
+  function disableUntilDirty(form) {
+    const btn = form.querySelector('button[type="submit"]');
+    if (!btn) return;
+    const snapshot = () => JSON.stringify([...new FormData(form).entries()]);
+    const initial = snapshot();
+    btn.disabled = true;
+    form.addEventListener('input', () => { btn.disabled = snapshot() === initial; });
+    form.addEventListener('change', () => { btn.disabled = snapshot() === initial; });
+  }
+
   function showSendConfirmation(overlay, waLink, smsLink, onDone) {
     const body = overlay.querySelector('.modal-body');
     body.innerHTML =
@@ -562,6 +572,9 @@
         '</form>' +
       '</div>';
 
+    disableUntilDirty(content.querySelector('#profile-form'));
+    disableUntilDirty(content.querySelector('#rates-form'));
+
     content.querySelector('#profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = new FormData(e.target);
@@ -916,6 +929,7 @@
       '</form>';
 
     const overlay = openModal('Edit Customer', html, (ov) => {
+      disableUntilDirty(ov.querySelector('#edit-customer-form'));
       ov.querySelector('#resend-setup-btn').addEventListener('click', async () => {
         try {
           const result = await api('/client/customers/' + customer.id + '/resend-setup', { method: 'POST' });
@@ -965,6 +979,7 @@
       '</form>';
 
     const overlay = openModal('Edit Vehicle', html, (ov) => {
+      disableUntilDirty(ov.querySelector('#edit-vehicle-form'));
       ov.querySelector('#edit-vehicle-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -1054,6 +1069,7 @@
             '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
           '</form>';
         const overlay = openModal('Edit Staff Member', html, (ov) => {
+          disableUntilDirty(ov.querySelector('#edit-staff-form'));
           ov.querySelector('#edit-staff-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const f = new FormData(e.target);
@@ -1545,6 +1561,7 @@
       '</form>';
 
     const overlay = openModal('Edit Client Business', html, (ov) => {
+      disableUntilDirty(ov.querySelector('#edit-client-form'));
       ov.querySelector('#resend-client-setup-btn').addEventListener('click', async () => {
         try {
           const result = await api('/admin/clients/' + client.id + '/resend-setup', { method: 'POST' });
