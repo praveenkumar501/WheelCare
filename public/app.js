@@ -630,7 +630,7 @@
       '</div>' +
       '<div class="section-header"><h3>Service Rates</h3></div>' +
       '<div class="card">' +
-        '<p style="font-size:12.5px;color:var(--text-muted);margin:-2px 0 16px;">Updating a rate here applies it to every customer\'s vehicle of that type immediately.</p>' +
+        '<div class="info-note"><span class="in-icon">💡</span>Updating a rate here applies it to every customer\'s vehicle of that type immediately.</div>' +
         '<form id="rates-form">' +
           '<div class="form-grid">' +
             '<div class="field"><label>' + vehicleIconHtml('Bike', 'sm') + 'Bike Rate (₹/mo)</label><input name="Bike" type="text" inputmode="numeric" pattern="[0-9]+" required value="' + esc(rates.Bike) + '" /></div>' +
@@ -1013,26 +1013,39 @@
 
   function openAddCustomerModal() {
     const html =
+      '<div class="modal-intro">' +
+        '<div class="modal-intro-icon" id="add-cust-avatar">👤</div>' +
+        '<div class="modal-intro-text">Add a new customer to your business. They\'ll get a WhatsApp/SMS link to set their own password — no need to create one for them.</div>' +
+      '</div>' +
       '<form id="add-customer-form">' +
-        '<div class="field"><label>Full Name</label><input name="name" required /></div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
-          '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
+        '<div class="form-section">' +
+          '<div class="form-section-title"><span class="fs-num">1</span>Customer Details</div>' +
+          '<div class="field"><label>Full Name</label><input name="name" required /></div>' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
+            '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
+          '</div>' +
         '</div>' +
-        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">A login username is generated automatically. The customer gets a WhatsApp/SMS link to set their own password.</p>' +
-        '<div class="divider-label">First Vehicle (optional)</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
-          '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
-        '</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
+        '<div class="form-section">' +
+          '<div class="form-section-title"><span class="fs-num">2</span>First Vehicle <span class="fs-optional">(optional)</span></div>' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Type</label><select name="vtype" id="add-cust-vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
+            '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
+          '</div>' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
+            '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
+          '</div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Add Customer</button>' +
       '</form>';
 
     const overlay = openModal('Add Customer', html, (ov) => {
+      const avatar = ov.querySelector('#add-cust-avatar');
+      const nameInput = ov.querySelector('#add-customer-form input[name="name"]');
+      nameInput.addEventListener('input', () => {
+        avatar.textContent = nameInput.value.trim() ? initials(nameInput.value) : '👤';
+      });
       ov.querySelector('#add-customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -1093,22 +1106,31 @@
 
   function openEditCustomerModal(customer) {
     const html =
+      '<div class="modal-intro">' +
+        '<div class="modal-intro-icon">' + esc(initials(customer.name)) + '</div>' +
+        '<div class="modal-intro-text">Update ' + esc(customer.name) + '\'s details, or register another vehicle for them.</div>' +
+      '</div>' +
       '<form id="edit-customer-form">' +
-        '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(customer.name) + '" /></div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(customer.phone) + '" /></div></div>' +
-          '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
+        '<div class="form-section">' +
+          '<div class="form-section-title"><span class="fs-num">1</span>Customer Details</div>' +
+          '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(customer.name) + '" /></div>' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(customer.phone) + '" /></div></div>' +
+            '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
+          '</div>' +
+          '<div class="field"><label>Login Username</label><input value="' + esc(customer.username) + '" disabled /></div>' +
+          '<button type="button" class="btn btn-outline btn-sm" id="resend-setup-btn" style="margin:-4px 0 14px;">Resend password setup link</button>' +
         '</div>' +
-        '<div class="field"><label>Login Username</label><input value="' + esc(customer.username) + '" disabled /></div>' +
-        '<button type="button" class="btn btn-outline btn-sm" id="resend-setup-btn" style="margin:-8px 0 16px;">Resend password setup link</button>' +
-        '<div class="divider-label">Add a Vehicle (optional)</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
-          '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
-        '</div>' +
-        '<div class="form-grid">' +
-          '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
+        '<div class="form-section">' +
+          '<div class="form-section-title"><span class="fs-num">2</span>Add a Vehicle <span class="fs-optional">(optional)</span></div>' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
+            '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
+          '</div>' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
+            '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
+          '</div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
