@@ -203,8 +203,10 @@ a { color: inherit; text-decoration: none; }
 }
 .landing-brand { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 19px; color: #fff; }
 .landing-hero {
-  max-width: 760px; margin: 40px auto 0; text-align: center;
+  max-width: 840px; margin: 40px auto 0; text-align: center;
 }
+@media (min-width: 1100px) { .landing-hero { max-width: 1040px; } }
+@media (min-width: 1500px) { .landing-hero { max-width: 1200px; } }
 .landing-kicker {
   color: var(--orange); font-size: 12px; font-weight: 700; letter-spacing: 2px;
   margin-bottom: 16px;
@@ -214,10 +216,12 @@ a { color: inherit; text-decoration: none; }
   font-size: 38px; line-height: 1.12; color: #fff; letter-spacing: -1px;
 }
 @media (min-width: 640px) { .landing-headline { font-size: 58px; } }
+@media (min-width: 1100px) { .landing-headline { font-size: 66px; } }
 .landing-sub {
   margin-top: 20px; color: rgba(255,255,255,0.65); font-size: 16px;
-  max-width: 540px; margin-left: auto; margin-right: auto; line-height: 1.65;
+  max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.65;
 }
+@media (min-width: 1100px) { .landing-sub { font-size: 17.5px; max-width: 680px; } }
 .landing-cta-row {
   margin-top: 34px; display: flex; flex-direction: column; gap: 12px;
   align-items: center; justify-content: center;
@@ -480,6 +484,12 @@ a { color: inherit; text-decoration: none; }
 .icon-btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-1px); }
 
 .content { flex: 1; padding: 18px 16px 100px; max-width: 760px; margin: 0 auto; width: 100%; }
+.content::after {
+  content: '🛞  WheelCare — vehicle care, simplified';
+  display: block; text-align: center;
+  font-size: 11.5px; letter-spacing: 0.3px; color: var(--text-muted);
+  opacity: 0.4; margin-top: 36px;
+}
 .content.no-bottom-pad { padding-bottom: 40px; }
 
 .bottom-nav {
@@ -501,7 +511,7 @@ a { color: inherit; text-decoration: none; }
 .sidebar-footer { display: none; }
 
 @media (min-width: 880px) {
-  .content.with-sidebar { margin: 0 0 0 246px; max-width: 920px; padding-bottom: 40px; }
+  .content.with-sidebar { margin: 0 auto 0 246px; max-width: 920px; padding-bottom: 40px; }
   .content:not(.with-sidebar) { max-width: 880px; }
 
   .bottom-nav.sidebar-nav {
@@ -547,12 +557,19 @@ a { color: inherit; text-decoration: none; }
   .sidebar-footer-brand { font-family: 'Sora', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--navy); }
   .sidebar-footer-tag { font-size: 10.5px; color: var(--text-muted); margin-top: 3px; }
 }
+@media (min-width: 1400px) {
+  .content.with-sidebar { max-width: 1140px; }
+  .content:not(.with-sidebar) { max-width: 1080px; }
+}
 
 /* ---------- Responsive card grids (fills wide desktop space) ---------- */
 .cards-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .cards-grid > .card, .cards-grid > .customer-card, .cards-grid > .vehicle-card { margin-bottom: 0; }
 @media (min-width: 640px) {
   .cards-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 1400px) {
+  .content.with-sidebar .cards-grid { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* ---------- Hero / stat cards ---------- */
@@ -774,6 +791,16 @@ a { color: inherit; text-decoration: none; }
 .payment-row .pr-right { text-align: right; }
 .payment-row .pr-amount { font-weight: 700; font-size: 14px; }
 .payment-row .pr-method { font-size: 10.5px; color: var(--text-muted); }
+
+.month-group { margin-bottom: 18px; }
+.month-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2px 8px;
+}
+.month-group-header span:first-child {
+  font-family: 'Sora', sans-serif; font-weight: 700; font-size: 13.5px; color: var(--navy);
+}
+.month-group-total { font-size: 12.5px; font-weight: 700; color: var(--orange-dark); }
 
 /* ---------- Revenue trend chart ---------- */
 .revenue-chart {

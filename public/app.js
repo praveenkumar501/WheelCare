@@ -108,6 +108,28 @@
     return '<div class="overview-card"><div class="ov-icon">' + icon + '</div><div class="ov-value">' + value + '</div><div class="ov-label">' + esc(label) + '</div></div>';
   }
 
+  function monthGroupedPaymentsHtml(payments, rowFn) {
+    if (payments.length === 0) {
+      return '<div class="card"><div class="empty-state"><div class="empty-icon">💳</div>No payments recorded yet.</div></div>';
+    }
+    const groups = new Map();
+    payments.forEach((p) => {
+      if (!groups.has(p.month)) groups.set(p.month, []);
+      groups.get(p.month).push(p);
+    });
+    const months = [...groups.keys()].sort().reverse();
+    return months.map((m) => {
+      const rows = groups.get(m);
+      const monthTotal = rows.reduce((sum, p) => sum + p.amount, 0);
+      return (
+        '<div class="month-group">' +
+          '<div class="month-group-header"><span>' + esc(monthLabel(m)) + '</span><span class="month-group-total">' + money(monthTotal) + '</span></div>' +
+          '<div class="card">' + rows.map(rowFn).join('') + '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
   function monthLabel(monthStr) {
     if (!monthStr) return '';
     const [y, m] = monthStr.split('-').map(Number);
@@ -559,14 +581,39 @@
         ? '<div class="card"><div class="empty-state"><div class="empty-icon">📷</div>No reports from customers yet.</div></div>'
         : complaints.map((c) => complaintCardHtml(c, { showCustomer: true, canRespond: c.status !== 'resolved' })).join(''));
 
+    const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     content.querySelectorAll('.complaint-respond-form').forEach((form) => {
+      form._photoDataUrl = null;
+      form.querySelector('.respond-photo-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        const preview = form.querySelector('.respond-photo-preview');
+        if (!file) { form._photoDataUrl = null; preview.classList.add('hidden'); return; }
+        if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+          toast('Photo must be a JPEG, PNG or WEBP image', 'error');
+          e.target.value = ''; form._photoDataUrl = null;
+          return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          toast('Photo must be under 2MB', 'error');
+          e.target.value = ''; form._photoDataUrl = null;
+          return;
+        }
+        try {
+          form._photoDataUrl = await readFileAsDataUrl(file);
+          preview.src = form._photoDataUrl;
+          preview.classList.remove('hidden');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
         try {
           await api('/client/complaints/' + form.dataset.complaintId + '/respond', {
             method: 'POST',
-            body: JSON.stringify({ response: f.get('response') }),
+            body: JSON.stringify({ response: f.get('response'), photo: form._photoDataUrl }),
           });
           toast('Response sent', 'success');
           renderClientReports();
@@ -605,8 +652,8 @@
         '<p style="font-size:12.5px;color:var(--text-muted);margin:-2px 0 16px;">Updating a rate here applies it to every customer\'s vehicle of that type immediately.</p>' +
         '<form id="rates-form">' +
           '<div class="form-grid">' +
-            '<div class="field"><label>' + vehicleIconHtml('Bike', 'sm') + 'Bike Rate (₹/mo)</label><input name="Bike" type="number" min="1" required value="' + esc(rates.Bike) + '" /></div>' +
-            '<div class="field"><label>' + vehicleIconHtml('Car', 'sm') + 'Car Rate (₹/mo)</label><input name="Car" type="number" min="1" required value="' + esc(rates.Car) + '" /></div>' +
+            '<div class="field"><label>' + vehicleIconHtml('Bike', 'sm') + 'Bike Rate (₹/mo)</label><input name="Bike" type="text" inputmode="numeric" pattern="[0-9]+" required value="' + esc(rates.Bike) + '" /></div>' +
+            '<div class="field"><label>' + vehicleIconHtml('Car', 'sm') + 'Car Rate (₹/mo)</label><input name="Car" type="text" inputmode="numeric" pattern="[0-9]+" required value="' + esc(rates.Car) + '" /></div>' +
           '</div>' +
           '<button type="submit" class="btn btn-primary btn-block">Update Rates for All Vehicles</button>' +
         '</form>' +
@@ -906,7 +953,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="number" min="1" placeholder="300" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Add Customer</button>' +
       '</form>';
@@ -945,7 +992,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="model" placeholder="Honda Activa" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="planAmount" type="number" min="1" required placeholder="300" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="planAmount" type="text" inputmode="numeric" pattern="[0-9]+" required placeholder="300" /></div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Add Vehicle</button>' +
       '</form>';
@@ -987,7 +1034,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="number" min="1" placeholder="300" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
@@ -1037,7 +1084,7 @@
         '</div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Model</label><input name="model" value="' + esc(vehicle.model || '') + '" /></div>' +
-          '<div class="field"><label>Monthly Plan (₹)</label><input name="planAmount" type="number" min="1" required value="' + vehicle.planAmount + '" /></div>' +
+          '<div class="field"><label>Monthly Plan (₹)</label><input name="planAmount" type="text" inputmode="numeric" pattern="[0-9]+" required value="' + vehicle.planAmount + '" /></div>' +
         '</div>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
@@ -1171,21 +1218,17 @@
         '<div class="field"><label>Vehicle</label><select name="vehicleId" id="pay-vehicle" required><option value="">Select customer first…</option></select></div>' +
         '<div class="form-grid">' +
           '<div class="field"><label>Month</label><input name="month" id="pay-month" value="' + esc(state.data.month) + '" /></div>' +
-          '<div class="field"><label>Amount (₹)</label><input name="amount" id="pay-amount" type="number" /></div>' +
+          '<div class="field"><label>Amount (₹)</label><input name="amount" id="pay-amount" type="text" inputmode="numeric" pattern="[0-9]+" /></div>' +
         '</div>' +
         '<div class="field"><label>Method</label><select name="method" required><option value="Cash">Cash</option><option value="UPI">UPI</option></select></div>' +
         '<button type="submit" class="btn btn-primary btn-block">Record Payment</button>' +
       '</form></div>' +
       '<div class="section-header"><h3>Payment History<span class="count-badge">' + payments.length + '</span></h3></div>' +
-      '<div class="card">' +
-        (payments.length === 0
-          ? '<div class="empty-state"><div class="empty-icon">💳</div>No payments recorded yet.</div>'
-          : payments.map((p) =>
-              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
-              '<div class="pr-sub">' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
-              '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
-            ).join('')) +
-      '</div>';
+      monthGroupedPaymentsHtml(payments, (p) =>
+        '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+        '<div class="pr-sub">' + formatDate(p.date) + '</div></div>' +
+        '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
+      );
 
     const customerSelect = document.getElementById('pay-customer');
     const vehicleSelect = document.getElementById('pay-vehicle');
@@ -1290,15 +1333,11 @@
 
     content.innerHTML =
       '<div class="section-header"><h3>Payment History<span class="count-badge">' + d.paymentHistory.length + '</span></h3></div>' +
-      '<div class="card">' +
-        (d.paymentHistory.length === 0
-          ? '<div class="empty-state"><div class="empty-icon">🧾</div>No payment history yet.</div>'
-          : d.paymentHistory.map((p) =>
-              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.vehicleType) + ' · ' + esc(p.vehicleNumber) + '</div>' +
-              '<div class="pr-sub">' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
-              '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
-            ).join('')) +
-      '</div>';
+      monthGroupedPaymentsHtml(d.paymentHistory, (p) =>
+        '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.vehicleType) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+        '<div class="pr-sub">' + formatDate(p.date) + '</div></div>' +
+        '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
+      );
   }
 
   function readFileAsDataUrl(file) {
@@ -1324,10 +1363,14 @@
         '<p class="complaint-desc">' + esc(c.description) + '</p>' +
         (c.photo ? '<img class="complaint-photo" src="' + c.photo + '" alt="Proof photo" />' : '') +
         (c.response
-          ? '<div class="complaint-response"><strong>Response:</strong> ' + esc(c.response) + '</div>'
+          ? '<div class="complaint-response"><strong>Response:</strong> ' + esc(c.response) + '</div>' +
+            (c.responsePhoto ? '<img class="complaint-photo" src="' + c.responsePhoto + '" alt="Resolution proof photo" />' : '')
           : (opts.canRespond
               ? '<form class="complaint-respond-form" data-complaint-id="' + c.id + '">' +
                   '<textarea name="response" rows="2" placeholder="Write a response…" required></textarea>' +
+                  '<div class="field" style="margin:8px 0 0;"><input type="file" name="responsePhoto" class="respond-photo-input" accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp" />' +
+                  '<p style="font-size:11px;color:var(--text-muted);margin-top:5px;">Optional proof photo · JPEG, PNG or WEBP · up to 2MB</p></div>' +
+                  '<img class="complaint-photo respond-photo-preview hidden" alt="Preview" />' +
                   '<button type="submit" class="btn btn-primary btn-sm">Send Response &amp; Resolve</button>' +
                 '</form>'
               : '<div class="complaint-response pending">Awaiting response from ' + esc('the business') + '…</div>')) +
@@ -1687,6 +1730,9 @@
       let digits = e.target.value.replace(/\D/g, '');
       if (digits.length > 10 && digits.startsWith('91')) digits = digits.slice(2);
       e.target.value = digits.slice(0, 10);
+    }
+    if (e.target && e.target.matches('input[name="Bike"], input[name="Car"], input[name="vamount"], input[name="planAmount"], input#pay-amount')) {
+      e.target.value = e.target.value.replace(/\D/g, '');
     }
   });
 
