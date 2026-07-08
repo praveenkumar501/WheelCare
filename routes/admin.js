@@ -51,6 +51,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       phone,
       area: area || '',
       active: true,
+      rates: { Bike: 300, Car: 700 },
       createdAt: new Date().toISOString(),
     };
     db.clients.push(client);
@@ -169,6 +170,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       phone: request.phone,
       area: request.area,
       active: true,
+      rates: { Bike: 300, Car: 700 },
       createdAt: new Date().toISOString(),
     };
     db.clients.push(client);
@@ -221,6 +223,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
           customerName: customer ? customer.name : 'Unknown',
           businessName: client ? client.businessName : 'Unknown',
           vehicleNumber: vehicle ? vehicle.number : '',
+          vehicleType: vehicle ? vehicle.type : '',
         };
       });
 

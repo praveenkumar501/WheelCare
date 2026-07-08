@@ -14,6 +14,10 @@
       "phone": "9876543210",
       "area": "Sunrise Residency, Block A",
       "active": true,
+      "rates": {
+        "Bike": 300,
+        "Car": 700
+      },
       "createdAt": "2026-04-01T09:00:00.000Z",
       "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
       "passwordSetupToken": null
@@ -26,6 +30,10 @@
       "phone": "9123456780",
       "area": "Green Meadows Apartments",
       "active": true,
+      "rates": {
+        "Bike": 300,
+        "Car": 700
+      },
       "createdAt": "2026-05-10T09:00:00.000Z",
       "password": "$2b$10$vS8sEd65rNYUmxOut6ag2eHJACmOVY4pFqVH38JMOFEU3NLTQYohC",
       "passwordSetupToken": null

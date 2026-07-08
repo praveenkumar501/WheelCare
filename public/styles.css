@@ -708,6 +708,22 @@ a { color: inherit; text-decoration: none; }
   width: 46px; height: 46px; border-radius: 14px; background: var(--orange-light);
   display: flex; align-items: center; justify-content: center; font-size: 22px;
 }
+
+.vtype-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 10px; flex-shrink: 0; vertical-align: middle;
+}
+.vtype-badge.bike { background: rgba(23,195,178,0.16); }
+.vtype-badge.car { background: rgba(255,91,46,0.16); }
+.vtype-sm { width: 26px; height: 26px; font-size: 14px; margin-right: 8px; border-radius: 8px; }
+.vtype-md { width: 38px; height: 38px; font-size: 19px; margin-right: 8px; }
+.vtype-lg { width: 52px; height: 52px; font-size: 26px; margin-right: 10px; }
+
+.cc-vehicle-mix {
+  display: flex; align-items: center; gap: 2px;
+  padding: 10px 0 4px;
+}
+.cc-vehicle-mix-label { font-size: 12px; color: var(--text-muted); margin-left: 6px; }
 .vehicle-card .vc-name { font-weight: 700; font-size: 14.5px; }
 .vehicle-card .vc-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .vehicle-card .vc-right { text-align: right; }

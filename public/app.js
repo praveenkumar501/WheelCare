@@ -35,11 +35,13 @@
     loginRole: 'client',
     view: 'landing',
     clientTab: 'home',
+    adminTab: 'overview',
     data: null, // role-specific dashboard payload
     staff: null,
     payments: null,
     adminClients: null,
     clientRequests: null,
+    adminOverview: null,
     customerSearch: '',
   };
 
@@ -76,6 +78,11 @@
 
   function initials(name) {
     return String(name || '').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  }
+
+  function vehicleIconHtml(type, size) {
+    const isCar = type === 'Car';
+    return '<span class="vtype-badge ' + (isCar ? 'car' : 'bike') + ' vtype-' + (size || 'md') + '">' + (isCar ? '🚗' : '🛵') + '</span>';
   }
 
   function monthLabel(monthStr) {
@@ -392,7 +399,19 @@
   }
 
   // ================= SHELL =================
-  function shellHtml(subtitle, showBottomNav) {
+  const CLIENT_TABS = [
+    { id: 'home', icon: '🏠', label: 'Home' },
+    { id: 'customers', icon: '👥', label: 'Customers' },
+    { id: 'staff', icon: '🧰', label: 'Staff' },
+    { id: 'payments', icon: '💳', label: 'Payments' },
+    { id: 'profile', icon: '⚙️', label: 'Profile' },
+  ];
+  const ADMIN_TABS = [
+    { id: 'overview', icon: '📊', label: 'Overview' },
+    { id: 'businesses', icon: '🏢', label: 'Businesses' },
+  ];
+
+  function shellHtml(subtitle, tabs, activeId) {
     const name = state.user ? (state.user.businessName || state.user.name || state.user.username) : '';
     return (
       '<div class="app-shell">' +
@@ -400,36 +419,30 @@
           '<div class="topbar-left"><div class="logo-dot">🛞</div><div><div class="topbar-title">WheelCare</div><div class="topbar-sub">' + esc(subtitle) + '</div></div></div>' +
           '<div class="topbar-right"><span class="topbar-user">' + esc(name) + '</span><button class="icon-btn" id="logout-btn">Logout</button></div>' +
         '</header>' +
-        '<main class="content' + (showBottomNav ? ' with-sidebar' : ' no-bottom-pad') + '" id="content"><div class="loading-spinner">Loading…</div></main>' +
-        (showBottomNav ? bottomNavHtml() : '') +
+        '<main class="content' + (tabs ? ' with-sidebar' : ' no-bottom-pad') + '" id="content"><div class="loading-spinner">Loading…</div></main>' +
+        (tabs ? bottomNavHtml(tabs, activeId) : '') +
       '</div>'
     );
   }
 
-  function bottomNavHtml() {
-    const tabs = [
-      { id: 'home', icon: '🏠', label: 'Home' },
-      { id: 'customers', icon: '👥', label: 'Customers' },
-      { id: 'staff', icon: '🧰', label: 'Staff' },
-      { id: 'payments', icon: '💳', label: 'Payments' },
-    ];
+  function bottomNavHtml(tabs, activeId) {
     return '<nav class="bottom-nav sidebar-nav" id="bottom-nav">' +
       tabs.map((t) =>
-        '<button class="nav-item' + (state.clientTab === t.id ? ' active' : '') + '" data-tab="' + t.id + '">' +
+        '<button class="nav-item' + (activeId === t.id ? ' active' : '') + '" data-tab="' + t.id + '">' +
           '<span class="nav-icon">' + t.icon + '</span><span>' + t.label + '</span>' +
         '</button>'
       ).join('') +
     '</nav>';
   }
 
-  function bindShellEvents(onTabChange) {
+  function bindShellEvents(onTabChange, tabStateKey) {
     document.getElementById('logout-btn').addEventListener('click', logout);
     const nav = document.getElementById('bottom-nav');
     if (nav) {
       nav.addEventListener('click', (e) => {
         const btn = e.target.closest('.nav-item');
         if (!btn) return;
-        state.clientTab = btn.dataset.tab;
+        state[tabStateKey] = btn.dataset.tab;
         onTabChange();
       });
     }
@@ -437,8 +450,8 @@
 
   // ================= CLIENT =================
   async function renderClientShell() {
-    $app.innerHTML = shellHtml('Business Dashboard', true);
-    bindShellEvents(renderClientTab);
+    $app.innerHTML = shellHtml('Business Dashboard', CLIENT_TABS, state.clientTab);
+    bindShellEvents(renderClientTab, 'clientTab');
     await loadClientData();
     renderClientTab();
   }
@@ -461,6 +474,75 @@
     if (state.clientTab === 'customers') return renderClientCustomers();
     if (state.clientTab === 'staff') return renderClientStaff();
     if (state.clientTab === 'payments') return renderClientPayments();
+    if (state.clientTab === 'profile') return renderClientProfile();
+  }
+
+  function renderClientProfile() {
+    const content = document.getElementById('content');
+    const d = state.data;
+    if (!d) { content.innerHTML = '<div class="loading-spinner">Loading…</div>'; return; }
+    const rates = d.client.rates || { Bike: 300, Car: 700 };
+
+    content.innerHTML =
+      '<div class="section-header"><h3>Business Profile</h3></div>' +
+      '<div class="card">' +
+        '<div class="provider-info">' +
+          '<div class="provider-avatar">' + esc(initials(d.client.businessName)) + '</div>' +
+          '<div><div class="provider-name">' + esc(d.client.businessName) + '</div>' +
+          '<div class="provider-meta">Username: ' + esc(state.user.username || '') + '</div></div>' +
+        '</div>' +
+        '<form id="profile-form" style="margin-top:18px;">' +
+          '<div class="field"><label>Owner Name</label><input name="ownerName" required value="' + esc(d.client.ownerName) + '" /></div>' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(d.client.phone) + '" /></div></div>' +
+            '<div class="field"><label>Area</label><input name="area" value="' + esc(d.client.area || '') + '" /></div>' +
+          '</div>' +
+          '<button type="submit" class="btn btn-outline btn-block">Save Profile</button>' +
+        '</form>' +
+      '</div>' +
+      '<div class="section-header"><h3>Service Rates</h3></div>' +
+      '<div class="card">' +
+        '<p style="font-size:12.5px;color:var(--text-muted);margin:-2px 0 16px;">Updating a rate here applies it to every customer\'s vehicle of that type immediately.</p>' +
+        '<form id="rates-form">' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>' + vehicleIconHtml('Bike', 'sm') + 'Bike Rate (₹/mo)</label><input name="Bike" type="number" min="1" required value="' + esc(rates.Bike) + '" /></div>' +
+            '<div class="field"><label>' + vehicleIconHtml('Car', 'sm') + 'Car Rate (₹/mo)</label><input name="Car" type="number" min="1" required value="' + esc(rates.Car) + '" /></div>' +
+          '</div>' +
+          '<button type="submit" class="btn btn-primary btn-block">Update Rates for All Vehicles</button>' +
+        '</form>' +
+      '</div>';
+
+    content.querySelector('#profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      try {
+        await api('/client/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ ownerName: f.get('ownerName'), phone: f.get('phone'), area: f.get('area') }),
+        });
+        toast('Profile updated', 'success');
+        await loadClientData();
+        renderClientTab();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+
+    content.querySelector('#rates-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      try {
+        const result = await api('/client/rates', {
+          method: 'PUT',
+          body: JSON.stringify({ Bike: f.get('Bike'), Car: f.get('Car') }),
+        });
+        toast('Rates updated — applied to ' + result.updatedVehicles + ' vehicle(s)', 'success');
+        await loadClientData();
+        renderClientTab();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
   }
 
   function renderClientHome() {
@@ -496,7 +578,7 @@
         (d.recentPayments.length === 0
           ? '<div class="empty-state"><div class="empty-icon">🧾</div>No payments recorded yet.</div>'
           : d.recentPayments.map((p) =>
-              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
               '<div class="pr-sub">' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
               '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
             ).join('')) +
@@ -520,8 +602,9 @@
     const monthsBadge = v.monthsDue > 1 ? ' <span class="chip chip-amber">' + v.monthsDue + ' months</span>' : '';
     return (
       '<div class="pending-item">' +
-        '<div class="pending-info"><div class="pi-name">' + esc(v.customerName) + '</div>' +
-        '<div class="pi-sub">' + esc(v.vehicleType) + ' · ' + esc(v.vehicleNumber) + ' · ' + esc(v.flat || '') + ' · ' + money(v.amount) + monthsBadge + '</div></div>' +
+        '<div class="pending-info" style="display:flex; align-items:center;">' + vehicleIconHtml(v.vehicleType, 'md') +
+        '<div><div class="pi-name">' + esc(v.customerName) + '</div>' +
+        '<div class="pi-sub">' + esc(v.vehicleType) + ' · ' + esc(v.vehicleNumber) + ' · ' + esc(v.flat || '') + ' · ' + money(v.amount) + monthsBadge + '</div></div></div>' +
         '<div class="pending-actions">' +
           '<button class="icon-round wa" title="WhatsApp reminder" data-remind-wa="' + v.vehicleId + '">💬</button>' +
           '<button class="icon-round sms" title="SMS reminder" data-remind-sms="' + v.vehicleId + '">✉️</button>' +
@@ -664,12 +747,11 @@
   }
 
   function vehicleRowHtml(v) {
-    const icon = v.type === 'Car' ? '🚗' : '🛵';
     const amount = v.paid ? v.planAmount : v.dueAmount;
     const statusLabel = v.paid ? 'Paid' : (v.monthsDue > 1 ? v.monthsDue + ' months due' : 'Due');
     return (
       '<div class="vehicle-row">' +
-        '<div class="vr-info"><span class="vr-icon">' + icon + '</span>' +
+        '<div class="vr-info">' + vehicleIconHtml(v.type, 'md') +
         '<div><div class="vr-name">' + esc(v.model || v.type) + '</div><div class="vr-sub">' + esc(v.number) + '</div></div></div>' +
         '<div class="vr-right"><span class="vr-amount">' + money(amount) + '</span>' +
         '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + statusLabel + '</span>' +
@@ -969,7 +1051,7 @@
         (payments.length === 0
           ? '<div class="empty-state"><div class="empty-icon">💳</div>No payments recorded yet.</div>'
           : payments.map((p) =>
-              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
               '<div class="pr-sub">' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
               '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
             ).join('')) +
@@ -1010,7 +1092,7 @@
 
   // ================= CUSTOMER =================
   async function renderCustomerShell() {
-    $app.innerHTML = shellHtml('My Vehicles', false);
+    $app.innerHTML = shellHtml('My Vehicles', null, null);
     document.getElementById('logout-btn').addEventListener('click', logout);
     await loadCustomerData();
     renderCustomerDashboard();
@@ -1040,10 +1122,9 @@
       '</div>' +
       '<div class="section-header"><h3>My Vehicles</h3></div>' +
       '<div class="cards-grid">' + d.vehicles.map((v) => {
-        const icon = v.type === 'Car' ? '🚗' : '🛵';
         const statusLabel = v.paid ? 'Paid' : (v.monthsDue > 1 ? v.monthsDue + ' months due' : 'Due');
         return (
-          '<div class="vehicle-card"><div class="vc-left"><div class="vc-icon">' + icon + '</div>' +
+          '<div class="vehicle-card"><div class="vc-left">' + vehicleIconHtml(v.type, 'lg') +
           '<div><div class="vc-name">' + esc(v.model || v.type) + '</div><div class="vc-sub">' + esc(v.number) + ' · ' + esc(v.type) + '</div></div></div>' +
           '<div class="vc-right"><div class="vc-amount">' + (v.paid ? money(v.planAmount) + '/mo' : money(v.dueAmount)) + '</div>' +
           '<span class="chip ' + (v.paid ? 'chip-paid' : 'chip-due') + '">' + statusLabel + '</span></div></div>'
@@ -1063,7 +1144,7 @@
         (d.paymentHistory.length === 0
           ? '<div class="empty-state"><div class="empty-icon">🧾</div>No payment history yet.</div>'
           : d.paymentHistory.map((p) =>
-              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + esc(p.vehicleType) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.vehicleType) + ' · ' + esc(p.vehicleNumber) + '</div>' +
               '<div class="pr-sub">' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
               '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
             ).join('')) +
@@ -1074,24 +1155,37 @@
 
   // ================= SUPER ADMIN =================
   async function renderAdminShell() {
-    $app.innerHTML = shellHtml('Platform Overview', false);
-    document.getElementById('logout-btn').addEventListener('click', logout);
-    await renderAdminDashboard();
+    $app.innerHTML = shellHtml('Platform Overview', ADMIN_TABS, state.adminTab);
+    bindShellEvents(renderAdminTab, 'adminTab');
+    await loadAdminData();
+    renderAdminTab();
   }
 
-  async function renderAdminDashboard() {
-    const content = document.getElementById('content');
-    content.innerHTML = '<div class="loading-spinner">Loading…</div>';
-    let overview, clients, requests;
+  async function loadAdminData() {
     try {
-      [overview, clients, requests] = await Promise.all([api('/admin/overview'), api('/admin/clients'), api('/admin/client-requests')]);
+      const [overview, clients, requests] = await Promise.all([api('/admin/overview'), api('/admin/clients'), api('/admin/client-requests')]);
+      state.adminOverview = overview;
+      state.adminClients = clients.clients;
+      state.clientRequests = requests.requests;
     } catch (err) {
       toast(err.message, 'error');
-      if (/unauthorized/i.test(err.message)) return logout();
-      return;
+      if (/unauthorized/i.test(err.message)) logout();
     }
-    state.adminClients = clients.clients;
-    state.clientRequests = requests.requests;
+  }
+
+  function renderAdminTab() {
+    const nav = document.getElementById('bottom-nav');
+    if (nav) {
+      nav.querySelectorAll('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === state.adminTab));
+    }
+    if (state.adminTab === 'businesses') return renderAdminBusinesses();
+    return renderAdminOverview();
+  }
+
+  function renderAdminOverview() {
+    const content = document.getElementById('content');
+    const overview = state.adminOverview;
+    if (!overview) { content.innerHTML = '<div class="loading-spinner">Loading…</div>'; return; }
 
     const maxMonthRevenue = Math.max(1, ...overview.monthlyRevenue.map((m) => m.revenue));
 
@@ -1122,11 +1216,17 @@
         (overview.recentPayments.length === 0
           ? '<div class="empty-state"><div class="empty-icon">🧾</div>No payments recorded yet.</div>'
           : overview.recentPayments.map((p) =>
-              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
               '<div class="pr-sub">' + esc(p.businessName) + ' · ' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
               '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
             ).join('')) +
-      '</div>' +
+      '</div>';
+  }
+
+  function renderAdminBusinesses() {
+    const content = document.getElementById('content');
+
+    content.innerHTML =
       (state.clientRequests.length === 0 ? '' :
         '<div class="section-header"><h3>Pending Requests<span class="count-badge">' + state.clientRequests.length + '</span></h3></div>' +
         '<div class="cards-grid">' + state.clientRequests.map((r) =>
@@ -1150,6 +1250,7 @@
               '<button class="icon-action-btn" title="Edit business" data-edit-client="' + c.id + '">' + EDIT_ICON + '</button>' +
               '<button class="icon-action-btn danger" title="Delete business" data-delete-client="' + c.id + '" data-business-name="' + esc(c.businessName) + '">' + DELETE_ICON + '</button>' +
             '</div></div>' +
+            '<div class="cc-vehicle-mix">' + vehicleIconHtml('Bike', 'md') + vehicleIconHtml('Car', 'md') + '<span class="cc-vehicle-mix-label">' + c.vehicleCount + ' vehicles on the road</span></div>' +
             '<div class="cc-vehicles">' +
               '<div class="vehicle-row"><div class="vr-info"><span class="vr-icon">👥</span><div class="vr-name">' + c.customerCount + ' customers</div></div>' +
               '<span class="vr-amount">' + c.vehicleCount + ' vehicles</span></div>' +
@@ -1166,7 +1267,7 @@
         try {
           const result = await api('/admin/client-requests/' + btn.dataset.approveRequest + '/approve', { method: 'POST' });
           toast('Business approved — username: ' + result.username, 'success');
-          openSendConfirmationModal('Send Setup Link', result.waLink, result.smsLink, renderAdminDashboard);
+          openSendConfirmationModal('Send Setup Link', result.waLink, result.smsLink, async () => { await loadAdminData(); renderAdminTab(); });
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -1178,7 +1279,8 @@
         try {
           await api('/admin/client-requests/' + btn.dataset.rejectRequest + '/reject', { method: 'POST' });
           toast('Request rejected', 'success');
-          renderAdminDashboard();
+          await loadAdminData();
+          renderAdminTab();
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -1193,7 +1295,8 @@
             body: JSON.stringify({ active: !currentlyActive }),
           });
           toast(currentlyActive ? 'Business deactivated' : 'Business activated', 'success');
-          renderAdminDashboard();
+          await loadAdminData();
+          renderAdminTab();
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -1225,7 +1328,7 @@
               }),
             });
             toast('Business onboarded — username: ' + result.username, 'success');
-            showSendConfirmation(overlay, result.waLink, result.smsLink, renderAdminDashboard);
+            showSendConfirmation(overlay, result.waLink, result.smsLink, async () => { await loadAdminData(); renderAdminTab(); });
           } catch (err) {
             toast(err.message, 'error');
           }
@@ -1278,7 +1381,8 @@
           await api('/admin/clients/' + client.id, { method: 'PUT', body: JSON.stringify(payload) });
           toast('Business updated', 'success');
           overlay.remove();
-          renderAdminDashboard();
+          await loadAdminData();
+          renderAdminTab();
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -1291,7 +1395,8 @@
     try {
       await api('/admin/clients/' + clientId, { method: 'DELETE' });
       toast('Business removed', 'success');
-      renderAdminDashboard();
+      await loadAdminData();
+      renderAdminTab();
     } catch (err) {
       toast(err.message, 'error');
     }
@@ -1308,6 +1413,19 @@
       let digits = e.target.value.replace(/\D/g, '');
       if (digits.length > 10 && digits.startsWith('91')) digits = digits.slice(2);
       e.target.value = digits.slice(0, 10);
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    if (e.target && (e.target.matches('select[name="vtype"]') || e.target.matches('select[name="type"]'))) {
+      const rates = state.data && state.data.client && state.data.client.rates;
+      if (!rates) return;
+      const form = e.target.closest('form');
+      if (!form) return;
+      const amountInput = form.querySelector('input[name="vamount"], input[name="planAmount"]');
+      if (amountInput && !amountInput.value && rates[e.target.value]) {
+        amountInput.value = rates[e.target.value];
+      }
     }
   });
 

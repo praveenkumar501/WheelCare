@@ -21,6 +21,7 @@ const {
   isValidVehicleNumber,
   normalizeVehicleNumber,
   PAYMENT_METHODS,
+  sanitizeClient,
 } = require('../utils');
 
 module.exports = function registerClientRoutes(app, authenticate) {
@@ -132,7 +133,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       });
 
     res.json({
-      client: { businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area },
+      client: { businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area, rates: client.rates || { Bike: 300, Car: 700 } },
       month,
       totalCollected,
       totalPending,
@@ -535,5 +536,59 @@ module.exports = function registerClientRoutes(app, authenticate) {
     }
 
     res.json({ reminders });
+  });
+
+  // ---------- Profile & Rates ----------
+  app.get('/api/client/profile', authenticate('client'), (req, res) => {
+    const db = readDB();
+    const client = db.clients.find((c) => c.id === req.session.id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    res.json({ client: { ...sanitizeClient(client), rates: client.rates || { Bike: 300, Car: 700 } } });
+  });
+
+  app.put('/api/client/profile', authenticate('client'), (req, res) => {
+    const { ownerName, phone, area } = req.body || {};
+    if (!ownerName || !phone) {
+      return res.status(400).json({ error: 'ownerName and phone are required' });
+    }
+    if (!isValidPhone(phone)) {
+      return res.status(400).json({ error: 'phone must be a 10-digit number' });
+    }
+
+    const db = readDB();
+    const client = db.clients.find((c) => c.id === req.session.id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    client.ownerName = ownerName;
+    client.phone = phone;
+    client.area = area || '';
+    writeDB(db);
+    res.json({ client: { ...sanitizeClient(client), rates: client.rates || { Bike: 300, Car: 700 } } });
+  });
+
+  app.put('/api/client/rates', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const { Bike, Car } = req.body || {};
+    if (!isValidPlanAmount(Bike) || !isValidPlanAmount(Car)) {
+      return res.status(400).json({ error: 'Bike and Car rates must both be positive numbers' });
+    }
+
+    const db = readDB();
+    const client = db.clients.find((c) => c.id === clientId);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    client.rates = { Bike: Number(Bike), Car: Number(Car) };
+
+    const customerIds = new Set(db.customers.filter((c) => c.clientId === clientId).map((c) => c.id));
+    let updatedVehicles = 0;
+    db.vehicles.forEach((v) => {
+      if (customerIds.has(v.customerId) && client.rates[v.type] !== undefined) {
+        v.planAmount = client.rates[v.type];
+        updatedVehicles += 1;
+      }
+    });
+
+    writeDB(db);
+    res.json({ rates: client.rates, updatedVehicles });
   });
 };
