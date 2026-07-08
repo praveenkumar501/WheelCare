@@ -14,7 +14,7 @@ const {
   buildLoginLink,
   buildSetPasswordLink,
   generateUsername,
-  makeToken,
+  buildPasswordSetupToken,
   isValidPhone,
   isValidVehicleType,
   isValidPlanAmount,
@@ -136,7 +136,11 @@ module.exports = function registerClientRoutes(app, authenticate) {
       });
 
     res.json({
-      client: { businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area, rates: client.rates || { Bike: 300, Car: 700 } },
+      client: {
+        businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area,
+        rates: client.rates || { Bike: 300, Car: 700 },
+        servicePaused: !!client.servicePaused, pauseReason: client.pauseReason || '',
+      },
       month,
       totalCollected,
       totalPending,
@@ -172,11 +176,15 @@ module.exports = function registerClientRoutes(app, authenticate) {
     }
 
     const db = readDB();
+    const client = db.clients.find((c) => c.id === clientId);
+    const hasVehicle = vehicle && vehicle.type && vehicle.number && vehicle.planAmount;
+    if (hasVehicle && client && client.servicePaused) {
+      return res.status(403).json({ error: 'New vehicle bookings are paused' + (client.pauseReason ? `: ${client.pauseReason}` : '.') + ' You can still add this customer without a vehicle.' });
+    }
+
     const existingUsernames = new Set(db.customers.map((c) => c.username));
     const username = generateUsername(existingUsernames, name);
-    const setupToken = makeToken();
-
-    const client = db.clients.find((c) => c.id === clientId);
+    const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
     const customer = {
       id: nextId(db, 'customers', 'cu'),
       clientId,
@@ -186,6 +194,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       username,
       password: null,
       passwordSetupToken: setupToken,
+      passwordSetupTokenExpiresAt: setupTokenExpiresAt,
       createdAt: new Date().toISOString(),
     };
     db.customers.push(customer);
@@ -254,8 +263,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
     const client = db.clients.find((c) => c.id === clientId);
-    const setupToken = makeToken();
+    const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
     customer.passwordSetupToken = setupToken;
+    customer.passwordSetupTokenExpiresAt = setupTokenExpiresAt;
     customer.password = null;
     writeDB(db);
 
@@ -304,6 +314,10 @@ module.exports = function registerClientRoutes(app, authenticate) {
     }
 
     const db = readDB();
+    const client = db.clients.find((c) => c.id === clientId);
+    if (client && client.servicePaused) {
+      return res.status(403).json({ error: 'New vehicle bookings are paused' + (client.pauseReason ? `: ${client.pauseReason}` : '.') });
+    }
     const customer = requireOwnCustomer(db, clientId, req.params.customerId);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
 
@@ -602,6 +616,24 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
     writeDB(db);
     res.json({ rates: client.rates, updatedVehicles });
+  });
+
+  app.put('/api/client/service-status', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const { paused, reason } = req.body || {};
+    if (typeof paused !== 'boolean') {
+      return res.status(400).json({ error: 'paused must be true or false' });
+    }
+
+    const db = readDB();
+    const client = db.clients.find((c) => c.id === clientId);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    client.servicePaused = paused;
+    client.pauseReason = paused ? String(reason || '').trim().slice(0, 200) : '';
+
+    writeDB(db);
+    res.json({ servicePaused: client.servicePaused, pauseReason: client.pauseReason });
   });
 
   // ---------- Service quality reports ----------

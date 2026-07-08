@@ -1,6 +1,6 @@
 const { readDB, writeDB, nextId } = require('../db');
 const {
-  sanitizeClient, isValidPhone, generateUsername, makeToken,
+  sanitizeClient, isValidPhone, generateUsername, buildPasswordSetupToken,
   buildOrigin, buildPasswordSetupPromptMessage, buildWaLink, buildSmsLink,
 } = require('../utils');
 
@@ -39,7 +39,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     const db = readDB();
     const existingUsernames = new Set(db.clients.map((c) => c.username));
     const username = generateUsername(existingUsernames, ownerName || businessName);
-    const setupToken = makeToken();
+    const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
 
     const client = {
       id: nextId(db, 'clients', 'c'),
@@ -48,6 +48,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       username,
       password: null,
       passwordSetupToken: setupToken,
+      passwordSetupTokenExpiresAt: setupTokenExpiresAt,
       phone,
       area: area || '',
       active: true,
@@ -111,8 +112,9 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     const client = db.clients.find((c) => c.id === req.params.id);
     if (!client) return res.status(404).json({ error: 'Client not found' });
 
-    const setupToken = makeToken();
+    const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
     client.passwordSetupToken = setupToken;
+    client.passwordSetupTokenExpiresAt = setupTokenExpiresAt;
     writeDB(db);
 
     const origin = buildOrigin(req);
@@ -158,7 +160,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
 
     const existingUsernames = new Set(db.clients.map((c) => c.username));
     const username = generateUsername(existingUsernames, request.ownerName || request.businessName);
-    const setupToken = makeToken();
+    const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
 
     const client = {
       id: nextId(db, 'clients', 'c'),
@@ -167,6 +169,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       username,
       password: null,
       passwordSetupToken: setupToken,
+      passwordSetupTokenExpiresAt: setupTokenExpiresAt,
       phone: request.phone,
       area: request.area,
       active: true,

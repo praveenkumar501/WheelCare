@@ -1,6 +1,6 @@
 const { readDB, writeDB } = require('../db');
 const { nextId } = require('../db');
-const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword } = require('../utils');
+const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword, isPasswordSetupTokenExpired } = require('../utils');
 
 module.exports = function registerPublicRoutes(app) {
   // ---------- Business registration requests ----------
@@ -82,9 +82,13 @@ module.exports = function registerPublicRoutes(app) {
     if (!account) {
       return res.status(404).json({ error: 'This setup link is invalid or has already been used' });
     }
+    if (isPasswordSetupTokenExpired(account.passwordSetupTokenExpiresAt)) {
+      return res.status(410).json({ error: 'This link has expired. Please ask for a new one to be sent.' });
+    }
 
     account.password = hashPassword(password);
     account.passwordSetupToken = null;
+    account.passwordSetupTokenExpiresAt = null;
     writeDB(db);
     res.json({ ok: true, username: account.username });
   });

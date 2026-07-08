@@ -663,10 +663,46 @@
           '</div>' +
           '<button type="submit" class="btn btn-primary btn-block">Update Rates for All Vehicles</button>' +
         '</form>' +
+      '</div>' +
+      '<div class="section-header"><h3>Service Status</h3></div>' +
+      '<div class="card">' +
+        '<div class="info-note"><span class="in-icon">🚰</span>Pause new vehicle bookings temporarily — for example during a water shortage. Existing customers and vehicles are not affected.</div>' +
+        '<form id="pause-form">' +
+          '<label class="toggle-row">' +
+            '<span class="toggle-label">New vehicle bookings' + (d.client.servicePaused ? ' <span class="chip chip-due">Paused</span>' : ' <span class="chip chip-paid">Open</span>') + '</span>' +
+            '<span class="toggle-switch"><input type="checkbox" name="paused"' + (d.client.servicePaused ? ' checked' : '') + ' /><span class="toggle-track"></span></span>' +
+          '</label>' +
+          '<div class="field" id="pause-reason-field" style="margin-top:12px;' + (d.client.servicePaused ? '' : 'display:none;') + '">' +
+            '<label>Reason shown to customers</label>' +
+            '<input name="reason" placeholder="e.g. Temporary water shortage" maxlength="200" value="' + esc(d.client.pauseReason || '') + '" />' +
+          '</div>' +
+          '<button type="submit" class="btn btn-outline btn-block" style="margin-top:14px;">Save Status</button>' +
+        '</form>' +
       '</div>';
 
     disableUntilDirty(content.querySelector('#profile-form'));
     disableUntilDirty(content.querySelector('#rates-form'));
+
+    const pauseToggle = content.querySelector('#pause-form input[name="paused"]');
+    const pauseReasonField = content.querySelector('#pause-reason-field');
+    pauseToggle.addEventListener('change', () => {
+      pauseReasonField.style.display = pauseToggle.checked ? '' : 'none';
+    });
+    content.querySelector('#pause-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      try {
+        await api('/client/service-status', {
+          method: 'PUT',
+          body: JSON.stringify({ paused: pauseToggle.checked, reason: f.get('reason') }),
+        });
+        toast(pauseToggle.checked ? 'New vehicle bookings paused' : 'New vehicle bookings resumed', 'success');
+        await loadClientData();
+        renderClientTab();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
 
     content.querySelector('#profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -707,6 +743,11 @@
     if (!d) { content.innerHTML = '<div class="loading-spinner">Loading…</div>'; return; }
 
     content.innerHTML =
+      (d.client.servicePaused
+        ? '<div class="reminder-digest"><div class="rd-icon">🚰</div>' +
+          '<div><div class="rd-title">New vehicle bookings are paused</div>' +
+          '<div class="rd-sub">Customers see: "' + esc(d.client.pauseReason || 'Not accepting new bookings right now') + '". <a href="#" id="resume-bookings-link" style="color:inherit;text-decoration:underline;">Resume bookings</a></div></div></div>'
+        : '') +
       '<div class="hero-banner">' +
         '<div class="month-label">' + esc(monthLabel(d.month)) + '</div>' +
         '<h2>' + esc(d.client.businessName) + '</h2>' +
@@ -753,6 +794,20 @@
       state.clientTab = 'payments';
       renderClientTab();
     });
+    const resumeLink = document.getElementById('resume-bookings-link');
+    if (resumeLink) {
+      resumeLink.addEventListener('click', async (e) => {
+        e.preventDefault();
+        try {
+          await api('/client/service-status', { method: 'PUT', body: JSON.stringify({ paused: false }) });
+          toast('New vehicle bookings resumed', 'success');
+          await loadClientData();
+          renderClientTab();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    }
   }
 
   function reminderDigestHtml(pendingVehicles) {
@@ -1036,6 +1091,29 @@
     });
   }
 
+  function isBookingPaused() {
+    return !!(state.data && state.data.client && state.data.client.servicePaused);
+  }
+
+  function pausedBookingNoticeHtml() {
+    const reason = state.data && state.data.client && state.data.client.pauseReason;
+    return '<div class="info-note" style="background:var(--red-light);color:var(--red);">' +
+      '<span class="in-icon">🚰</span>New vehicle bookings are paused' + (reason ? ': ' + esc(reason) : '.') +
+      ' <a href="#" data-go-to-profile style="color:inherit;text-decoration:underline;">Manage in Profile</a></div>';
+  }
+
+  function bindGoToProfileLinks(container) {
+    container.querySelectorAll('[data-go-to-profile]').forEach((a) => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const overlay = a.closest('.modal-overlay');
+        if (overlay) overlay.remove();
+        state.clientTab = 'profile';
+        renderClientTab();
+      });
+    });
+  }
+
   function openAddCustomerModal() {
     const html =
       '<div class="modal-intro">' +
@@ -1051,21 +1129,24 @@
             '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
           '</div>' +
         '</div>' +
-        '<div class="form-section">' +
-          '<div class="form-section-title"><span class="fs-num">2</span>First Vehicle <span class="fs-optional">(optional)</span></div>' +
-          '<div class="form-grid">' +
-            '<div class="field"><label>Type</label><select name="vtype" id="add-cust-vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
-            '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
-          '</div>' +
-          '<div class="form-grid">' +
-            '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
-            '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
-          '</div>' +
-        '</div>' +
+        (isBookingPaused()
+          ? pausedBookingNoticeHtml()
+          : '<div class="form-section">' +
+              '<div class="form-section-title"><span class="fs-num">2</span>First Vehicle <span class="fs-optional">(optional)</span></div>' +
+              '<div class="form-grid">' +
+                '<div class="field"><label>Type</label><select name="vtype" id="add-cust-vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
+                '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
+              '</div>' +
+              '<div class="form-grid">' +
+                '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
+                '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
+              '</div>' +
+            '</div>') +
         '<button type="submit" class="btn btn-primary btn-block">Add Customer</button>' +
       '</form>';
 
     const overlay = openModal('Add Customer', html, (ov) => {
+      bindGoToProfileLinks(ov);
       const avatar = ov.querySelector('#add-cust-avatar');
       const nameInput = ov.querySelector('#add-customer-form input[name="name"]');
       nameInput.addEventListener('input', () => {
@@ -1095,6 +1176,9 @@
   }
 
   function openAddVehicleModal(customerId, customerName) {
+    if (isBookingPaused()) {
+      return openModal('Add Vehicle', pausedBookingNoticeHtml(), (ov) => bindGoToProfileLinks(ov));
+    }
     const html =
       '<form id="add-vehicle-form">' +
         '<div class="field"><label>For</label><input value="' + esc(customerName) + '" disabled /></div>' +
@@ -1146,21 +1230,24 @@
           '<div class="field"><label>Login Username</label><input value="' + esc(customer.username) + '" disabled /></div>' +
           '<button type="button" class="btn btn-outline btn-sm" id="resend-setup-btn" style="margin:-4px 0 14px;">Resend password setup link</button>' +
         '</div>' +
-        '<div class="form-section">' +
-          '<div class="form-section-title"><span class="fs-num">2</span>Add a Vehicle <span class="fs-optional">(optional)</span></div>' +
-          '<div class="form-grid">' +
-            '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
-            '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
-          '</div>' +
-          '<div class="form-grid">' +
-            '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
-            '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
-          '</div>' +
-        '</div>' +
+        (isBookingPaused()
+          ? pausedBookingNoticeHtml()
+          : '<div class="form-section">' +
+              '<div class="form-section-title"><span class="fs-num">2</span>Add a Vehicle <span class="fs-optional">(optional)</span></div>' +
+              '<div class="form-grid">' +
+                '<div class="field"><label>Type</label><select name="vtype"><option value="">— None —</option><option value="Bike">Bike</option><option value="Car">Car</option></select></div>' +
+                '<div class="field"><label>Reg. Number</label><input name="vnumber" placeholder="KA01AB1234" style="text-transform:uppercase" pattern="' + VEHICLE_NUMBER_PATTERN + '" title="' + VEHICLE_NUMBER_TITLE + '" /></div>' +
+              '</div>' +
+              '<div class="form-grid">' +
+                '<div class="field"><label>Model</label><input name="vmodel" placeholder="Honda Activa" /></div>' +
+                '<div class="field"><label>Monthly Plan (₹)</label><input name="vamount" type="text" inputmode="numeric" pattern="[0-9]+" placeholder="300" /></div>' +
+              '</div>' +
+            '</div>') +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
 
     const overlay = openModal('Edit Customer', html, (ov) => {
+      bindGoToProfileLinks(ov);
       disableUntilDirty(ov.querySelector('#edit-customer-form'));
       ov.querySelector('#resend-setup-btn').addEventListener('click', async () => {
         try {
@@ -1456,6 +1543,11 @@
     if (!d) { content.innerHTML = '<div class="loading-spinner">Loading…</div>'; return; }
 
     content.innerHTML =
+      (d.client.servicePaused
+        ? '<div class="reminder-digest"><div class="rd-icon">🚰</div>' +
+          '<div><div class="rd-title">New bookings temporarily paused</div>' +
+          '<div class="rd-sub">' + esc(d.client.pauseReason || 'We\'re not accepting new vehicle bookings right now.') + ' We apologize for the inconvenience.</div></div></div>'
+        : '') +
       '<div class="status-banner ' + (d.anyDue ? 'due' : 'paid') + '">' +
         '<div class="sb-icon">' + (d.anyDue ? '⏰' : '✅') + '</div>' +
         '<h2>' + (d.anyDue ? 'Payment Due: ' + money(d.totalDue) : 'All Paid Up!') + '</h2>' +

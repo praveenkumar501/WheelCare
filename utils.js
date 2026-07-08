@@ -162,6 +162,19 @@ function makeToken() {
   return require('crypto').randomBytes(24).toString('hex');
 }
 
+const PASSWORD_SETUP_TOKEN_TTL_MS = 15 * 60 * 1000;
+
+function buildPasswordSetupToken() {
+  return {
+    token: makeToken(),
+    expiresAt: new Date(Date.now() + PASSWORD_SETUP_TOKEN_TTL_MS).toISOString(),
+  };
+}
+
+function isPasswordSetupTokenExpired(expiresAt) {
+  return !expiresAt || new Date(expiresAt).getTime() < Date.now();
+}
+
 function generateUsername(existingUsernames, base) {
   const slug = String(base || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14) || 'user';
   let candidate = slug;
@@ -174,12 +187,12 @@ function generateUsername(existingUsernames, base) {
 }
 
 function sanitizeClient(client) {
-  const { password, passwordSetupToken, ...rest } = client;
+  const { password, passwordSetupToken, passwordSetupTokenExpiresAt, ...rest } = client;
   return rest;
 }
 
 function sanitizeCustomer(customer) {
-  const { password, passwordSetupToken, ...rest } = customer;
+  const { password, passwordSetupToken, passwordSetupTokenExpiresAt, ...rest } = customer;
   return rest;
 }
 
@@ -201,6 +214,8 @@ module.exports = {
   buildWaLink,
   buildSmsLink,
   makeToken,
+  buildPasswordSetupToken,
+  isPasswordSetupTokenExpired,
   generateUsername,
   sanitizeClient,
   sanitizeCustomer,
