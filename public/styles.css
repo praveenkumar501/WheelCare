@@ -175,6 +175,23 @@ a { color: inherit; text-decoration: none; }
 }
 .auth-card-dark .auth-hint { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
 .auth-card-dark .auth-links .link-btn { color: #FF8A5C; }
+.auth-card-dark .phone-input-group {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.14);
+}
+.auth-card-dark .phone-input-group:focus-within {
+  background: rgba(255,255,255,0.10);
+  border-color: var(--orange);
+}
+.auth-card-dark .phone-prefix {
+  color: rgba(255,255,255,0.55);
+  background: rgba(255,255,255,0.04);
+  border-right-color: rgba(255,255,255,0.14);
+}
+.auth-card-dark .phone-input-group input {
+  color: #fff;
+}
+.auth-card-dark .phone-input-group input::placeholder { color: rgba(255,255,255,0.32); }
 .auth-card-dark .auth-error { background: rgba(232, 67, 58, 0.18); color: #FF9187; }
 
 /* ---------- Landing page ---------- */
@@ -317,6 +334,32 @@ a { color: inherit; text-decoration: none; }
   outline: none;
 }
 .field input:focus, .field select:focus { border-color: var(--orange); background: #fff; }
+
+.phone-input-group {
+  display: flex; align-items: stretch;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.phone-input-group:focus-within { border-color: var(--orange); background: #fff; }
+.phone-prefix {
+  display: flex; align-items: center;
+  padding: 0 12px;
+  font-size: 15px; font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(0,0,0,0.04);
+  border-right: 1.5px solid var(--border);
+  white-space: nowrap;
+}
+.phone-input-group input {
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  flex: 1;
+  min-width: 0;
+}
+.phone-input-group input:focus { outline: none; }
 
 .auth-links {
   display: flex; align-items: center; justify-content: space-between;

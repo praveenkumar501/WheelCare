@@ -245,7 +245,7 @@
   function otpFormHtml() {
     return (
       '<form id="otp-request-form">' +
-        '<div class="field"><label>Phone</label><input id="otp-phone" required pattern="[0-9]{10}" placeholder="10-digit number" autocomplete="tel" /></div>' +
+        '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input id="otp-phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" autocomplete="tel" /></div></div>' +
         '<button type="submit" class="btn btn-primary btn-block" id="send-otp-btn">Send OTP</button>' +
       '</form>' +
       '<div id="otp-step2" class="hidden">' +
@@ -299,7 +299,7 @@
         '<div class="field"><label>Business Name</label><input name="businessName" required /></div>' +
         '<div class="field"><label>Owner Name</label><input name="ownerName" required /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
         '</div>' +
         '<div class="field"><label>Choose Username</label><input name="username" required /></div>' +
@@ -623,7 +623,7 @@
       '<form id="add-customer-form">' +
         '<div class="field"><label>Full Name</label><input name="name" required /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
         '</div>' +
         '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
@@ -705,7 +705,7 @@
       '<form id="edit-customer-form">' +
         '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(customer.name) + '" /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(customer.phone) + '" /></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(customer.phone) + '" /></div></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
         '</div>' +
         '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(customer.username) + '" /></div>' +
@@ -811,7 +811,7 @@
       const html =
         '<form id="add-staff-form">' +
           '<div class="field"><label>Full Name</label><input name="name" required /></div>' +
-          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<button type="submit" class="btn btn-primary btn-block">Add Staff</button>' +
         '</form>';
       const overlay = openModal('Add Staff Member', html, (ov) => {
@@ -848,7 +848,7 @@
         const html =
           '<form id="edit-staff-form">' +
             '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(member.name) + '" /></div>' +
-            '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(member.phone) + '" /></div>' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(member.phone) + '" /></div></div>' +
             '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
           '</form>';
         const overlay = openModal('Edit Staff Member', html, (ov) => {
@@ -1109,7 +1109,7 @@
           '<div class="field"><label>Business Name</label><input name="businessName" required /></div>' +
           '<div class="field"><label>Owner Name</label><input name="ownerName" required /></div>' +
           '<div class="form-grid">' +
-            '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" placeholder="10-digit number" /></div>' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
             '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
           '</div>' +
           '<div class="field"><label>Login Username</label><input name="username" required /></div>' +
@@ -1155,7 +1155,7 @@
         '<div class="field"><label>Business Name</label><input name="businessName" required value="' + esc(client.businessName) + '" /></div>' +
         '<div class="field"><label>Owner Name</label><input name="ownerName" required value="' + esc(client.ownerName) + '" /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><input name="phone" required pattern="[0-9]{10}" value="' + esc(client.phone) + '" /></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(client.phone) + '" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" value="' + esc(client.area || '') + '" /></div>' +
         '</div>' +
         '<div class="field"><label>Login Username</label><input name="username" required value="' + esc(client.username) + '" /></div>' +
@@ -1198,6 +1198,14 @@
     const [path, qs] = raw.split('?');
     return { path, params: new URLSearchParams(qs || '') };
   }
+
+  document.addEventListener('input', (e) => {
+    if (e.target && e.target.matches('.phone-input-group input')) {
+      let digits = e.target.value.replace(/\D/g, '');
+      if (digits.length > 10 && digits.startsWith('91')) digits = digits.slice(2);
+      e.target.value = digits.slice(0, 10);
+    }
+  });
 
   const initialHash = parseHash();
   if (initialHash.path === 'login') {
