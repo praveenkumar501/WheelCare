@@ -467,6 +467,7 @@ a { color: inherit; text-decoration: none; }
     background: #fff;
   }
   .bottom-nav.sidebar-nav .nav-item {
+    flex: none;
     flex-direction: row; justify-content: flex-start; gap: 12px;
     padding: 12px 14px; font-size: 13.5px; border-radius: 12px;
   }
