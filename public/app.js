@@ -204,8 +204,8 @@
 
   // ---------------- Root render ----------------
   function render() {
+    if (state.view === 'set-password') return renderSetPassword();
     if (!state.token) {
-      if (state.view === 'set-password') return renderSetPassword();
       return state.view === 'login' ? renderLogin() : renderLanding();
     }
     if (state.role === 'superadmin') return renderAdminShell();
@@ -401,6 +401,10 @@
       state.view = 'login';
       return renderLogin();
     }
+    // Opening a set-password link is always a fresh, explicit action —
+    // drop any stale session so a stored login doesn't hijack the flow.
+    if (state.token) { state.token = null; state.role = null; state.user = null; state.data = null; }
+    localStorage.removeItem('wc_token'); localStorage.removeItem('wc_role'); localStorage.removeItem('wc_user');
     $app.innerHTML =
       '<div class="auth-screen premium-bg">' +
         '<div class="auth-center">' +
