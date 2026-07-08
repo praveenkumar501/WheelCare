@@ -706,7 +706,7 @@
         (d.recentPayments.length === 0
           ? '<div class="empty-state"><div class="empty-icon">🧾</div>No payments recorded yet.</div>'
           : d.recentPayments.map((p) =>
-              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="payment-row clickable-row" data-open-customer="' + vehicleCustomerId(p.vehicleId) + '"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
               '<div class="pr-sub">' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
               '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
             ).join('')) +
@@ -751,7 +751,7 @@
     const monthsBadge = v.monthsDue > 1 ? ' <span class="chip chip-amber">' + v.monthsDue + ' months</span>' : '';
     return (
       '<div class="pending-item">' +
-        '<div class="pending-info" style="display:flex; align-items:center;">' + vehicleIconHtml(v.vehicleType, 'md') +
+        '<div class="pending-info clickable-row" data-open-customer="' + v.customerId + '" style="display:flex; align-items:center;">' + vehicleIconHtml(v.vehicleType, 'md') +
         '<div><div class="pi-name">' + esc(v.customerName) + '</div>' +
         '<div class="pi-sub">' + esc(v.vehicleType) + ' · ' + esc(v.vehicleNumber) + ' · ' + esc(v.flat || '') + ' · ' + money(v.amount) + monthsBadge + '</div></div></div>' +
         (v.remindedToday
@@ -806,6 +806,12 @@
       renderCustomersList();
     });
     renderCustomersList();
+  }
+
+  function vehicleCustomerId(vehicleId) {
+    if (!state.data) return '';
+    const customer = state.data.customers.find((c) => c.vehicles.some((v) => v.id === vehicleId));
+    return customer ? customer.id : '';
   }
 
   function filteredCustomers() {
@@ -881,7 +887,7 @@
   function customerCardHtml(c) {
     return (
       '<div class="card customer-card">' +
-        '<div class="cc-top"><div><div class="cc-name">' + esc(c.name) + '</div>' +
+        '<div class="cc-top"><div class="clickable-row" data-open-customer="' + c.id + '"><div class="cc-name">' + esc(c.name) + '</div>' +
         '<div class="cc-meta">' + esc(c.flat || '') + ' · ' + esc(c.phone) + '</div></div>' +
         '<div class="cc-actions">' +
           '<button class="link-btn" data-add-vehicle="' + c.id + '" data-customer-name="' + esc(c.name) + '">+ Vehicle</button>' +
@@ -912,6 +918,93 @@
         '</div></div>' +
       '</div>'
     );
+  }
+
+  function openCustomerDetailModal(customerId) {
+    const customer = state.data && state.data.customers.find((c) => c.id === customerId);
+    if (!customer) return;
+    const totalDue = customer.vehicles.reduce((sum, v) => sum + (v.paid ? 0 : v.dueAmount), 0);
+
+    const html =
+      '<div class="provider-info">' +
+        '<div class="provider-avatar">' + esc(initials(customer.name)) + '</div>' +
+        '<div><div class="provider-name">' + esc(customer.name) + '</div>' +
+        '<div class="provider-meta">' + esc(customer.flat || '') + (customer.flat ? ' · ' : '') + esc(customer.phone) + '</div></div>' +
+      '</div>' +
+      '<div class="stat-row" style="margin-top:16px;">' +
+        '<div class="stat-card"><div class="stat-label">Vehicles</div><div class="stat-value">' + customer.vehicles.length + '</div></div>' +
+        '<div class="stat-card ' + (totalDue > 0 ? 'pending' : 'collected') + '"><div class="stat-label">' + (totalDue > 0 ? 'Total Due' : 'Status') + '</div><div class="stat-value">' + (totalDue > 0 ? money(totalDue) : 'All Paid') + '</div></div>' +
+      '</div>' +
+      '<div class="divider-label">Vehicles</div>' +
+      (customer.vehicles.length
+        ? customer.vehicles.map(vehicleRowHtml).join('')
+        : '<div class="empty-state" style="padding:12px 0;">No vehicles yet</div>') +
+      '<div class="divider-label">Payment History</div>' +
+      '<div id="cust-detail-payments"><div class="loading-spinner">Loading…</div></div>' +
+      '<div class="divider-label">Service Reports</div>' +
+      '<div id="cust-detail-reports"><div class="loading-spinner">Loading…</div></div>' +
+      '<div style="display:flex; gap:10px; margin-top:16px;">' +
+        '<button class="btn btn-outline" id="cust-detail-edit-btn" style="flex:1;">Edit Customer</button>' +
+        '<button class="btn btn-primary" id="cust-detail-vehicle-btn" style="flex:1;">+ Add Vehicle</button>' +
+      '</div>';
+
+    const overlay = openModal(customer.name, html, async (ov) => {
+      ov.querySelectorAll('[data-edit-vehicle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const vehicle = customer.vehicles.find((v) => v.id === btn.dataset.editVehicle);
+          if (vehicle) { overlay.remove(); openEditVehicleModal(vehicle); }
+        });
+      });
+      ov.querySelectorAll('[data-delete-vehicle]').forEach((btn) => {
+        btn.addEventListener('click', () => deleteVehicle(btn.dataset.deleteVehicle, btn.dataset.vehicleNumber));
+      });
+      ov.querySelector('#cust-detail-edit-btn').addEventListener('click', () => { overlay.remove(); openEditCustomerModal(customer); });
+      ov.querySelector('#cust-detail-vehicle-btn').addEventListener('click', () => { overlay.remove(); openAddVehicleModal(customer.id, customer.name); });
+
+      try {
+        const [paymentsResult, complaintsResult] = await Promise.all([
+          api('/client/payments'),
+          api('/client/complaints'),
+        ]);
+        const custVehicleIds = new Set(customer.vehicles.map((v) => v.id));
+        const custPayments = paymentsResult.payments.filter((p) => custVehicleIds.has(p.vehicleId));
+        const payBox = ov.querySelector('#cust-detail-payments');
+        payBox.innerHTML = custPayments.length
+          ? monthGroupedPaymentsHtml(custPayments, (p) =>
+              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.vehicleType) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="pr-sub">' + formatDate(p.date) + '</div></div>' +
+              '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
+            )
+          : '<div class="empty-state" style="padding:12px 0;">No payments yet</div>';
+
+        const custComplaints = complaintsResult.complaints.filter((c) => c.customerId === customerId);
+        const repBox = ov.querySelector('#cust-detail-reports');
+        repBox.innerHTML = custComplaints.length
+          ? custComplaints.map((c) => complaintCardHtml(c, { showCustomer: false, canRespond: c.status !== 'resolved' })).join('')
+          : '<div class="empty-state" style="padding:12px 0;">No reports</div>';
+
+        repBox.querySelectorAll('.complaint-respond-form').forEach((form) => {
+          const photoBox = bindMultiPhotoInput(form.querySelector('.respond-photo-input'), form.querySelector('.respond-photo-preview'));
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const f = new FormData(e.target);
+            try {
+              await api('/client/complaints/' + form.dataset.complaintId + '/respond', {
+                method: 'POST',
+                body: JSON.stringify({ response: f.get('response'), photos: photoBox.photos }),
+              });
+              toast('Response sent', 'success');
+              overlay.remove();
+              openCustomerDetailModal(customerId);
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+          });
+        });
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
   }
 
   function openAddCustomerModal() {
@@ -1202,7 +1295,7 @@
       '</form></div>' +
       '<div class="section-header"><h3>Payment History<span class="count-badge">' + payments.length + '</span></h3></div>' +
       monthGroupedPaymentsHtml(payments, (p) =>
-        '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+        '<div class="payment-row clickable-row" data-open-customer="' + vehicleCustomerId(p.vehicleId) + '"><div class="pr-left"><div class="pr-name">' + vehicleIconHtml(p.vehicleType, 'sm') + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
         '<div class="pr-sub">' + formatDate(p.date) + '</div></div>' +
         '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
       );
@@ -1361,7 +1454,7 @@
       : '<span class="chip chip-due">Open</span>';
     return (
       '<div class="card complaint-card">' +
-        '<div class="cc-top"><div>' +
+        '<div class="cc-top"><div' + (opts.showCustomer ? ' class="clickable-row" data-open-customer="' + c.customerId + '"' : '') + '>' +
           (opts.showCustomer ? '<div class="cc-name">' + esc(c.customerName) + (c.customerFlat ? ' · ' + esc(c.customerFlat) : '') + '</div>' : '') +
           '<div class="cc-meta">' + vehicleIconHtml(c.vehicleType, 'sm') + esc(c.vehicleType) + ' · ' + esc(c.vehicleNumber) + ' · ' + formatDate(c.createdAt) + '</div>' +
         '</div>' + statusChip + '</div>' +
@@ -1730,6 +1823,11 @@
   });
 
   document.body.addEventListener('click', (e) => {
+    const customerRow = e.target.closest('[data-open-customer]');
+    if (customerRow && customerRow.dataset.openCustomer && !e.target.closest('button, a, input, textarea, select, form')) {
+      openCustomerDetailModal(customerRow.dataset.openCustomer);
+      return;
+    }
     const btn = e.target.closest('.pwd-toggle-btn');
     if (btn) {
       const input = btn.previousElementSibling;

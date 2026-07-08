@@ -786,6 +786,10 @@ a { color: inherit; text-decoration: none; }
   padding: 12px 0; border-bottom: 1px solid var(--border);
 }
 .payment-row:last-child { border-bottom: none; }
+
+.clickable-row { cursor: pointer; }
+.customer-card .cc-top .clickable-row:hover .cc-name, .complaint-card .cc-top .clickable-row:hover .cc-name { color: var(--orange); }
+.pending-info.clickable-row:hover .pi-name, .payment-row.clickable-row:hover .pr-name { color: var(--orange); }
 .payment-row .pr-left .pr-name { font-weight: 600; font-size: 13.5px; }
 .payment-row .pr-left .pr-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
 .payment-row .pr-right { text-align: right; }
