@@ -141,8 +141,8 @@
   ];
 
   const HERO_ILLUSTRATION_HTML =
-    '<div class="vehicle-tile bike-tile"><span class="vehicle-emoji">🛵</span></div>' +
-    '<div class="vehicle-tile car-tile"><span class="vehicle-emoji">🚗</span></div>';
+    '<div class="vehicle-tile bike-tile"><span class="speed-lines"></span><span class="vehicle-emoji">🏍️</span></div>' +
+    '<div class="vehicle-tile car-tile"><span class="speed-lines"></span><span class="vehicle-emoji">🏎️</span></div>';
 
   function renderLanding() {
     $app.innerHTML =
