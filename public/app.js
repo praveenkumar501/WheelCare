@@ -1422,20 +1422,34 @@
   function bindMultiPhotoInput(input, previewContainer) {
     const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const box = { photos: [] };
+
+    function render() {
+      previewContainer.innerHTML = box.photos.map((src, i) =>
+        '<div class="photo-preview-item"><img class="complaint-photo" src="' + src + '" alt="Preview" />' +
+        '<button type="button" class="photo-remove-btn" data-remove-photo="' + i + '">✕</button></div>'
+      ).join('');
+      previewContainer.querySelectorAll('[data-remove-photo]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          box.photos.splice(Number(btn.dataset.removePhoto), 1);
+          render();
+        });
+      });
+    }
+
     input.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files || []);
-      const reset = () => { box.photos = []; previewContainer.innerHTML = ''; e.target.value = ''; };
-      if (files.length > 4) { toast('You can attach up to 4 photos', 'error'); reset(); return; }
+      e.target.value = ''; // clear so picking the same file again still fires change
       for (const file of files) {
-        if (!ALLOWED_PHOTO_TYPES.includes(file.type)) { toast('Photos must be JPEG, PNG or WEBP images', 'error'); reset(); return; }
-        if (file.size > 2 * 1024 * 1024) { toast('Each photo must be under 2MB', 'error'); reset(); return; }
+        if (box.photos.length >= 4) { toast('You can attach up to 4 photos', 'error'); break; }
+        if (!ALLOWED_PHOTO_TYPES.includes(file.type)) { toast('Photos must be JPEG, PNG or WEBP images', 'error'); continue; }
+        if (file.size > 2 * 1024 * 1024) { toast('Each photo must be under 2MB', 'error'); continue; }
+        try {
+          box.photos.push(await readFileAsDataUrl(file));
+        } catch (err) {
+          toast(err.message, 'error');
+        }
       }
-      try {
-        box.photos = await Promise.all(files.map(readFileAsDataUrl));
-        previewContainer.innerHTML = box.photos.map((src) => '<img class="complaint-photo" src="' + src + '" alt="Preview" />').join('');
-      } catch (err) {
-        toast(err.message, 'error');
-      }
+      render();
     });
     return box;
   }
