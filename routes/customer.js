@@ -52,12 +52,16 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
   });
 
   app.post('/api/customer/complaints', authenticate('customer'), (req, res) => {
-    const { vehicleId, description, photo } = req.body || {};
+    const { vehicleId, description, photos } = req.body || {};
     if (!vehicleId || !description || !description.trim()) {
       return res.status(400).json({ error: 'vehicleId and description are required' });
     }
-    if (photo && !/^data:image\/(png|jpe?g|webp);base64,/.test(photo)) {
-      return res.status(400).json({ error: 'photo must be a valid image (PNG, JPEG or WEBP)' });
+    const photoList = Array.isArray(photos) ? photos.filter(Boolean) : [];
+    if (photoList.length > 4) {
+      return res.status(400).json({ error: 'You can attach up to 4 photos' });
+    }
+    if (photoList.some((p) => !/^data:image\/(png|jpe?g|webp);base64,/.test(p))) {
+      return res.status(400).json({ error: 'Photos must be valid images (PNG, JPEG or WEBP)' });
     }
 
     const db = readDB();
@@ -72,9 +76,10 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
       customerId: customer.id,
       vehicleId,
       description: description.trim(),
-      photo: photo || null,
+      photos: photoList,
       status: 'open',
       response: null,
+      responsePhotos: [],
       createdAt: new Date().toISOString(),
       respondedAt: null,
     };

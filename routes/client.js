@@ -629,12 +629,16 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
   app.post('/api/client/complaints/:id/respond', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { response, photo } = req.body || {};
+    const { response, photos } = req.body || {};
     if (!response || !response.trim()) {
       return res.status(400).json({ error: 'response is required' });
     }
-    if (photo && !/^data:image\/(png|jpe?g|webp);base64,/.test(photo)) {
-      return res.status(400).json({ error: 'photo must be a valid image (PNG, JPEG or WEBP)' });
+    const photoList = Array.isArray(photos) ? photos.filter(Boolean) : [];
+    if (photoList.length > 4) {
+      return res.status(400).json({ error: 'You can attach up to 4 photos' });
+    }
+    if (photoList.some((p) => !/^data:image\/(png|jpe?g|webp);base64,/.test(p))) {
+      return res.status(400).json({ error: 'Photos must be valid images (PNG, JPEG or WEBP)' });
     }
 
     const db = readDB();
@@ -642,7 +646,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
     if (!complaint) return res.status(404).json({ error: 'Report not found' });
 
     complaint.response = response.trim();
-    complaint.responsePhoto = photo || null;
+    complaint.responsePhotos = photoList;
     complaint.status = 'resolved';
     complaint.respondedAt = new Date().toISOString();
     writeDB(db);

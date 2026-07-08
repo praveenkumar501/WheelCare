@@ -370,7 +370,7 @@
     const html =
       '<form id="forgot-password-form">' +
         '<div class="field"><label>Username</label><input name="username" required /></div>' +
-        '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
+        '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
         pwdFieldHtml('New Password', 'newPassword', { required: true, minlength: 6, title: 'At least 6 characters' }) +
         '<button type="submit" class="btn btn-primary btn-block">Reset Password</button>' +
       '</form>';
@@ -444,7 +444,7 @@
         '<div class="field"><label>Business Name</label><input name="businessName" required /></div>' +
         '<div class="field"><label>Owner Name</label><input name="ownerName" required /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
         '</div>' +
         '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">Once approved, we\'ll generate your login username and send you a WhatsApp/SMS link to set your password.</p>' +
@@ -581,31 +581,8 @@
         ? '<div class="card"><div class="empty-state"><div class="empty-icon">📷</div>No reports from customers yet.</div></div>'
         : complaints.map((c) => complaintCardHtml(c, { showCustomer: true, canRespond: c.status !== 'resolved' })).join(''));
 
-    const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     content.querySelectorAll('.complaint-respond-form').forEach((form) => {
-      form._photoDataUrl = null;
-      form.querySelector('.respond-photo-input').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        const preview = form.querySelector('.respond-photo-preview');
-        if (!file) { form._photoDataUrl = null; preview.classList.add('hidden'); return; }
-        if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-          toast('Photo must be a JPEG, PNG or WEBP image', 'error');
-          e.target.value = ''; form._photoDataUrl = null;
-          return;
-        }
-        if (file.size > 2 * 1024 * 1024) {
-          toast('Photo must be under 2MB', 'error');
-          e.target.value = ''; form._photoDataUrl = null;
-          return;
-        }
-        try {
-          form._photoDataUrl = await readFileAsDataUrl(file);
-          preview.src = form._photoDataUrl;
-          preview.classList.remove('hidden');
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
+      const photoBox = bindMultiPhotoInput(form.querySelector('.respond-photo-input'), form.querySelector('.respond-photo-preview'));
 
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -613,7 +590,7 @@
         try {
           await api('/client/complaints/' + form.dataset.complaintId + '/respond', {
             method: 'POST',
-            body: JSON.stringify({ response: f.get('response'), photo: form._photoDataUrl }),
+            body: JSON.stringify({ response: f.get('response'), photos: photoBox.photos }),
           });
           toast('Response sent', 'success');
           renderClientReports();
@@ -641,7 +618,7 @@
         '<form id="profile-form" style="margin-top:18px;">' +
           '<div class="field"><label>Owner Name</label><input name="ownerName" required value="' + esc(d.client.ownerName) + '" /></div>' +
           '<div class="form-grid">' +
-            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(d.client.phone) + '" /></div></div>' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(d.client.phone) + '" /></div></div>' +
             '<div class="field"><label>Area</label><input name="area" value="' + esc(d.client.area || '') + '" /></div>' +
           '</div>' +
           '<button type="submit" class="btn btn-outline btn-block">Save Profile</button>' +
@@ -942,7 +919,7 @@
       '<form id="add-customer-form">' +
         '<div class="field"><label>Full Name</label><input name="name" required /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
         '</div>' +
         '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">A login username is generated automatically. The customer gets a WhatsApp/SMS link to set their own password.</p>' +
@@ -1022,7 +999,7 @@
       '<form id="edit-customer-form">' +
         '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(customer.name) + '" /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(customer.phone) + '" /></div></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(customer.phone) + '" /></div></div>' +
           '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
         '</div>' +
         '<div class="field"><label>Login Username</label><input value="' + esc(customer.username) + '" disabled /></div>' +
@@ -1139,7 +1116,7 @@
       const html =
         '<form id="add-staff-form">' +
           '<div class="field"><label>Full Name</label><input name="name" required /></div>' +
-          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<button type="submit" class="btn btn-primary btn-block">Add Staff</button>' +
         '</form>';
       const overlay = openModal('Add Staff Member', html, (ov) => {
@@ -1176,7 +1153,7 @@
         const html =
           '<form id="edit-staff-form">' +
             '<div class="field"><label>Full Name</label><input name="name" required value="' + esc(member.name) + '" /></div>' +
-            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(member.phone) + '" /></div></div>' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(member.phone) + '" /></div></div>' +
             '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
           '</form>';
         const overlay = openModal('Edit Staff Member', html, (ov) => {
@@ -1349,6 +1326,34 @@
     });
   }
 
+  function bindMultiPhotoInput(input, previewContainer) {
+    const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const box = { photos: [] };
+    input.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      const reset = () => { box.photos = []; previewContainer.innerHTML = ''; e.target.value = ''; };
+      if (files.length > 4) { toast('You can attach up to 4 photos', 'error'); reset(); return; }
+      for (const file of files) {
+        if (!ALLOWED_PHOTO_TYPES.includes(file.type)) { toast('Photos must be JPEG, PNG or WEBP images', 'error'); reset(); return; }
+        if (file.size > 2 * 1024 * 1024) { toast('Each photo must be under 2MB', 'error'); reset(); return; }
+      }
+      try {
+        box.photos = await Promise.all(files.map(readFileAsDataUrl));
+        previewContainer.innerHTML = box.photos.map((src) => '<img class="complaint-photo" src="' + src + '" alt="Preview" />').join('');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+    return box;
+  }
+
+  function photoGridHtml(photos, altPrefix) {
+    if (!photos || photos.length === 0) return '';
+    return '<div class="complaint-photo-grid">' +
+      photos.map((src, i) => '<img class="complaint-photo" src="' + src + '" alt="' + esc(altPrefix) + ' ' + (i + 1) + '" />').join('') +
+    '</div>';
+  }
+
   function complaintCardHtml(c, opts) {
     opts = opts || {};
     const statusChip = c.status === 'resolved'
@@ -1361,16 +1366,16 @@
           '<div class="cc-meta">' + vehicleIconHtml(c.vehicleType, 'sm') + esc(c.vehicleType) + ' · ' + esc(c.vehicleNumber) + ' · ' + formatDate(c.createdAt) + '</div>' +
         '</div>' + statusChip + '</div>' +
         '<p class="complaint-desc">' + esc(c.description) + '</p>' +
-        (c.photo ? '<img class="complaint-photo" src="' + c.photo + '" alt="Proof photo" />' : '') +
+        photoGridHtml(c.photos, 'Proof photo') +
         (c.response
           ? '<div class="complaint-response"><strong>Response:</strong> ' + esc(c.response) + '</div>' +
-            (c.responsePhoto ? '<img class="complaint-photo" src="' + c.responsePhoto + '" alt="Resolution proof photo" />' : '')
+            photoGridHtml(c.responsePhotos, 'Resolution photo')
           : (opts.canRespond
               ? '<form class="complaint-respond-form" data-complaint-id="' + c.id + '">' +
                   '<textarea name="response" rows="2" placeholder="Write a response…" required></textarea>' +
-                  '<div class="field" style="margin:8px 0 0;"><input type="file" name="responsePhoto" class="respond-photo-input" accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp" />' +
-                  '<p style="font-size:11px;color:var(--text-muted);margin-top:5px;">Optional proof photo · JPEG, PNG or WEBP · up to 2MB</p></div>' +
-                  '<img class="complaint-photo respond-photo-preview hidden" alt="Preview" />' +
+                  '<div class="field" style="margin:8px 0 0;"><input type="file" name="responsePhotos" class="respond-photo-input" multiple accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp" />' +
+                  '<p style="font-size:11px;color:var(--text-muted);margin-top:5px;">Optional proof photos · up to 4 · JPEG, PNG or WEBP · 2MB each</p></div>' +
+                  '<div class="complaint-photo-grid respond-photo-preview"></div>' +
                   '<button type="submit" class="btn btn-primary btn-sm">Send Response &amp; Resolve</button>' +
                 '</form>'
               : '<div class="complaint-response pending">Awaiting response from ' + esc('the business') + '…</div>')) +
@@ -1415,37 +1420,12 @@
           vehicles.map((v) => '<option value="' + v.id + '">' + esc(v.type) + ' · ' + esc(v.number) + '</option>').join('') +
         '</select></div>' +
         '<div class="field"><label>What went wrong?</label><textarea name="description" rows="3" required placeholder="e.g. Bike wasn\'t cleaned properly, dust still on seat…"></textarea></div>' +
-        '<div class="field"><label>Photo proof (optional)</label><input type="file" name="photo" accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp" id="report-photo-input" /><p style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">JPEG, PNG or WEBP · up to 2MB</p></div>' +
-        '<img id="report-photo-preview" class="complaint-photo hidden" alt="Preview" />' +
+        '<div class="field"><label>Photo proof (optional)</label><input type="file" name="photos" multiple accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp" id="report-photo-input" /><p style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">Up to 4 photos · JPEG, PNG or WEBP · 2MB each</p></div>' +
+        '<div class="complaint-photo-grid" id="report-photo-preview"></div>' +
         '<button type="submit" class="btn btn-primary btn-block">Submit Report</button>' +
       '</form>';
     const overlay = openModal('Raise a Report', html, (ov) => {
-      let photoDataUrl = null;
-      const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-      ov.querySelector('#report-photo-input').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) { photoDataUrl = null; return; }
-        if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-          toast('Photo must be a JPEG, PNG or WEBP image', 'error');
-          e.target.value = '';
-          photoDataUrl = null;
-          return;
-        }
-        if (file.size > 2 * 1024 * 1024) {
-          toast('Photo must be under 2MB', 'error');
-          e.target.value = '';
-          photoDataUrl = null;
-          return;
-        }
-        try {
-          photoDataUrl = await readFileAsDataUrl(file);
-          const preview = ov.querySelector('#report-photo-preview');
-          preview.src = photoDataUrl;
-          preview.classList.remove('hidden');
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
+      const photoBox = bindMultiPhotoInput(ov.querySelector('#report-photo-input'), ov.querySelector('#report-photo-preview'));
 
       ov.querySelector('#raise-report-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1456,7 +1436,7 @@
             body: JSON.stringify({
               vehicleId: f.get('vehicleId'),
               description: f.get('description'),
-              photo: photoDataUrl,
+              photos: photoBox.photos,
             }),
           });
           toast('Report submitted', 'success');
@@ -1625,7 +1605,7 @@
           '<div class="field"><label>Business Name</label><input name="businessName" required /></div>' +
           '<div class="field"><label>Owner Name</label><input name="ownerName" required /></div>' +
           '<div class="form-grid">' +
-            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
+            '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
             '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
           '</div>' +
           '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">A login username is generated automatically. The business owner gets a WhatsApp/SMS link to set their own password.</p>' +
@@ -1669,7 +1649,7 @@
         '<div class="field"><label>Business Name</label><input name="businessName" required value="' + esc(client.businessName) + '" /></div>' +
         '<div class="field"><label>Owner Name</label><input name="ownerName" required value="' + esc(client.ownerName) + '" /></div>' +
         '<div class="form-grid">' +
-          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[0-9]{10}" inputmode="numeric" value="' + esc(client.phone) + '" /></div></div>' +
+          '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(client.phone) + '" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" value="' + esc(client.area || '') + '" /></div>' +
         '</div>' +
         '<div class="field"><label>Login Username</label><input value="' + esc(client.username) + '" disabled /></div>' +
@@ -1751,12 +1731,17 @@
 
   document.body.addEventListener('click', (e) => {
     const btn = e.target.closest('.pwd-toggle-btn');
-    if (!btn) return;
-    const input = btn.previousElementSibling;
-    if (!input) return;
-    const showing = input.type === 'text';
-    input.type = showing ? 'password' : 'text';
-    btn.innerHTML = showing ? EYE_OPEN_ICON : EYE_OFF_ICON;
+    if (btn) {
+      const input = btn.previousElementSibling;
+      if (input) {
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.innerHTML = showing ? EYE_OPEN_ICON : EYE_OFF_ICON;
+      }
+      return;
+    }
+    const photo = e.target.closest('.complaint-photo');
+    if (photo && photo.src) window.open(photo.src, '_blank');
   });
 
   const initialHash = parseHash();

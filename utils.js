@@ -57,7 +57,10 @@ const PAYMENT_METHODS = ['Cash', 'UPI'];
 const MIN_PASSWORD_LENGTH = 6;
 
 function isValidPhone(phone) {
-  return /^[0-9]{10}$/.test(String(phone || ''));
+  const s = String(phone || '');
+  if (!/^[6-9][0-9]{9}$/.test(s)) return false;
+  if (/^(\d)\1{9}$/.test(s)) return false; // reject all-same-digit numbers (e.g. 9999999999)
+  return true;
 }
 
 function isValidPassword(password) {

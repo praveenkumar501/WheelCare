@@ -1,14 +1,15 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { readDB } = require('./db');
+const db = require('./db');
+const { readDB } = db;
 const { makeToken, sanitizeClient, sanitizeCustomer, comparePassword } = require('./utils');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.set('trust proxy', true);
-app.use(express.json({ limit: '3mb' }));
+app.use(express.json({ limit: '12mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // token -> { role, id, clientId }
@@ -115,6 +116,8 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`WheelCare server running on http://localhost:${PORT}`);
+db.ready().then(() => {
+  app.listen(PORT, () => {
+    console.log(`WheelCare server running on http://localhost:${PORT}`);
+  });
 });
