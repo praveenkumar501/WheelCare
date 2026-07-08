@@ -157,11 +157,48 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   app.get('/api/admin/overview', authenticate('superadmin'), (req, res) => {
     const db = readDB();
     const totalRevenue = db.payments.reduce((sum, p) => sum + p.amount, 0);
+
+    const clientById = new Map(db.clients.map((c) => [c.id, c]));
+    const customerById = new Map(db.customers.map((c) => [c.id, c]));
+    const vehicleById = new Map(db.vehicles.map((v) => [v.id, v]));
+
+    const recentPayments = [...db.payments]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 6)
+      .map((p) => {
+        const vehicle = vehicleById.get(p.vehicleId);
+        const customer = vehicle ? customerById.get(vehicle.customerId) : null;
+        const client = customer ? clientById.get(customer.clientId) : null;
+        return {
+          id: p.id,
+          amount: p.amount,
+          method: p.method,
+          date: p.date,
+          month: p.month,
+          customerName: customer ? customer.name : 'Unknown',
+          businessName: client ? client.businessName : 'Unknown',
+          vehicleNumber: vehicle ? vehicle.number : '',
+        };
+      });
+
+    const revenueByMonth = new Map();
+    db.payments.forEach((p) => {
+      revenueByMonth.set(p.month, (revenueByMonth.get(p.month) || 0) + p.amount);
+    });
+    const monthlyRevenue = [...revenueByMonth.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .slice(-6)
+      .map(([month, revenue]) => ({ month, revenue }));
+
     res.json({
       totalClients: db.clients.length,
       totalCustomers: db.customers.length,
       totalVehicles: db.vehicles.length,
+      totalStaff: db.staff.length,
       totalRevenue,
+      pendingRequests: db.clientRequests.filter((r) => r.status === 'pending').length,
+      recentPayments,
+      monthlyRevenue,
     });
   });
 };

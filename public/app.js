@@ -1023,12 +1023,39 @@
     state.adminClients = clients.clients;
     state.clientRequests = requests.requests;
 
+    const maxMonthRevenue = Math.max(1, ...overview.monthlyRevenue.map((m) => m.revenue));
+
     content.innerHTML =
       '<div class="overview-row">' +
         '<div class="overview-card"><div class="ov-value">' + overview.totalClients + '</div><div class="ov-label">Businesses</div></div>' +
         '<div class="overview-card"><div class="ov-value">' + overview.totalCustomers + '</div><div class="ov-label">Customers</div></div>' +
         '<div class="overview-card"><div class="ov-value">' + overview.totalVehicles + '</div><div class="ov-label">Vehicles</div></div>' +
         '<div class="overview-card"><div class="ov-value">' + money(overview.totalRevenue) + '</div><div class="ov-label">Total Revenue</div></div>' +
+      '</div>' +
+      '<div class="overview-row overview-row-sm">' +
+        '<div class="overview-card"><div class="ov-value">' + overview.totalStaff + '</div><div class="ov-label">Staff</div></div>' +
+        '<div class="overview-card"><div class="ov-value">' + overview.pendingRequests + '</div><div class="ov-label">Pending Requests</div></div>' +
+      '</div>' +
+      (overview.monthlyRevenue.length === 0 ? '' :
+        '<div class="section-header"><h3>Revenue Trend</h3></div>' +
+        '<div class="card">' +
+          '<div class="revenue-chart">' + overview.monthlyRevenue.map((m) =>
+            '<div class="revenue-bar-col">' +
+              '<div class="revenue-bar-track"><div class="revenue-bar-fill" style="height:' + Math.max(6, Math.round((m.revenue / maxMonthRevenue) * 100)) + '%"></div></div>' +
+              '<div class="revenue-bar-amount">' + money(m.revenue) + '</div>' +
+              '<div class="revenue-bar-label">' + esc(monthLabel(m.month)) + '</div>' +
+            '</div>'
+          ).join('') + '</div>' +
+        '</div>') +
+      '<div class="section-header"><h3>Recent Payments (all businesses)</h3></div>' +
+      '<div class="card">' +
+        (overview.recentPayments.length === 0
+          ? '<div class="empty-state"><div class="empty-icon">🧾</div>No payments recorded yet.</div>'
+          : overview.recentPayments.map((p) =>
+              '<div class="payment-row"><div class="pr-left"><div class="pr-name">' + esc(p.customerName) + ' · ' + esc(p.vehicleNumber) + '</div>' +
+              '<div class="pr-sub">' + esc(p.businessName) + ' · ' + esc(monthLabel(p.month)) + ' · ' + formatDate(p.date) + '</div></div>' +
+              '<div class="pr-right"><div class="pr-amount">' + money(p.amount) + '</div><div class="pr-method">' + esc(p.method) + '</div></div></div>'
+            ).join('')) +
       '</div>' +
       (state.clientRequests.length === 0 ? '' :
         '<div class="section-header"><h3>Pending Requests<span class="count-badge">' + state.clientRequests.length + '</span></h3></div>' +
