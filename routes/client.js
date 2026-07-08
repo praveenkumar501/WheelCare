@@ -591,4 +591,45 @@ module.exports = function registerClientRoutes(app, authenticate) {
     writeDB(db);
     res.json({ rates: client.rates, updatedVehicles });
   });
+
+  // ---------- Service quality reports ----------
+  app.get('/api/client/complaints', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const db = readDB();
+    const customerById = new Map(db.customers.map((c) => [c.id, c]));
+    const vehicleById = new Map(db.vehicles.map((v) => [v.id, v]));
+    const complaints = (db.complaints || [])
+      .filter((c) => c.clientId === clientId)
+      .map((c) => {
+        const customer = customerById.get(c.customerId);
+        const vehicle = vehicleById.get(c.vehicleId);
+        return {
+          ...c,
+          customerName: customer ? customer.name : 'Unknown',
+          customerFlat: customer ? customer.flat : '',
+          vehicleNumber: vehicle ? vehicle.number : '',
+          vehicleType: vehicle ? vehicle.type : '',
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ complaints });
+  });
+
+  app.post('/api/client/complaints/:id/respond', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const { response } = req.body || {};
+    if (!response || !response.trim()) {
+      return res.status(400).json({ error: 'response is required' });
+    }
+
+    const db = readDB();
+    const complaint = (db.complaints || []).find((c) => c.id === req.params.id && c.clientId === clientId);
+    if (!complaint) return res.status(404).json({ error: 'Report not found' });
+
+    complaint.response = response.trim();
+    complaint.status = 'resolved';
+    complaint.respondedAt = new Date().toISOString();
+    writeDB(db);
+    res.json({ complaint });
+  });
 };

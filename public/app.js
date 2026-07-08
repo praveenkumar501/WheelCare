@@ -36,12 +36,15 @@
     view: 'landing',
     clientTab: 'home',
     adminTab: 'overview',
+    customerTab: 'vehicles',
     data: null, // role-specific dashboard payload
     staff: null,
     payments: null,
     adminClients: null,
     clientRequests: null,
     adminOverview: null,
+    clientComplaints: null,
+    customerComplaints: null,
     customerSearch: '',
   };
 
@@ -83,6 +86,10 @@
   function vehicleIconHtml(type, size) {
     const isCar = type === 'Car';
     return '<span class="vtype-badge ' + (isCar ? 'car' : 'bike') + ' vtype-' + (size || 'md') + '">' + (isCar ? '🚗' : '🛵') + '</span>';
+  }
+
+  function ovCardHtml(icon, value, label) {
+    return '<div class="overview-card"><div class="ov-icon">' + icon + '</div><div class="ov-value">' + value + '</div><div class="ov-label">' + esc(label) + '</div></div>';
   }
 
   function monthLabel(monthStr) {
@@ -404,11 +411,16 @@
     { id: 'customers', icon: '👥', label: 'Customers' },
     { id: 'staff', icon: '🧰', label: 'Staff' },
     { id: 'payments', icon: '💳', label: 'Payments' },
+    { id: 'reports', icon: '📷', label: 'Reports' },
     { id: 'profile', icon: '⚙️', label: 'Profile' },
   ];
   const ADMIN_TABS = [
     { id: 'overview', icon: '📊', label: 'Overview' },
     { id: 'businesses', icon: '🏢', label: 'Businesses' },
+  ];
+  const CUSTOMER_TABS = [
+    { id: 'vehicles', icon: '🏠', label: 'Vehicles' },
+    { id: 'reports', icon: '📷', label: 'Reports' },
   ];
 
   function shellHtml(subtitle, tabs, activeId) {
@@ -474,7 +486,45 @@
     if (state.clientTab === 'customers') return renderClientCustomers();
     if (state.clientTab === 'staff') return renderClientStaff();
     if (state.clientTab === 'payments') return renderClientPayments();
+    if (state.clientTab === 'reports') return renderClientReports();
     if (state.clientTab === 'profile') return renderClientProfile();
+  }
+
+  async function renderClientReports() {
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading-spinner">Loading…</div>';
+    try {
+      const result = await api('/client/complaints');
+      state.clientComplaints = result.complaints;
+    } catch (err) {
+      toast(err.message, 'error');
+      return;
+    }
+    const complaints = state.clientComplaints || [];
+    const openCount = complaints.filter((c) => c.status !== 'resolved').length;
+
+    content.innerHTML =
+      '<div class="section-header"><h3>Service Reports<span class="count-badge">' + openCount + ' open</span></h3></div>' +
+      (complaints.length === 0
+        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📷</div>No reports from customers yet.</div></div>'
+        : complaints.map((c) => complaintCardHtml(c, { showCustomer: true, canRespond: c.status !== 'resolved' })).join(''));
+
+    content.querySelectorAll('.complaint-respond-form').forEach((form) => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/client/complaints/' + form.dataset.complaintId + '/respond', {
+            method: 'POST',
+            body: JSON.stringify({ response: f.get('response') }),
+          });
+          toast('Response sent', 'success');
+          renderClientReports();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
   }
 
   function renderClientProfile() {
@@ -560,8 +610,8 @@
         '<div class="stat-card pending"><div class="stat-label">Pending this month</div><div class="stat-value">' + money(d.totalPending) + '</div></div>' +
       '</div>' +
       '<div class="overview-row overview-row-sm">' +
-        '<div class="overview-card"><div class="ov-value">' + d.totalCustomers + '</div><div class="ov-label">Customers</div></div>' +
-        '<div class="overview-card"><div class="ov-value">' + d.totalVehicles + '</div><div class="ov-label">Vehicles</div></div>' +
+        ovCardHtml('👥', d.totalCustomers, 'Customers') +
+        ovCardHtml('🚗', d.totalVehicles, 'Vehicles') +
       '</div>' +
       '<div class="section-header"><h3>Payment Due<span class="count-badge">' + d.pendingVehicles.length + '</span></h3>' +
         (d.pendingVehicles.length ? '<button class="btn btn-outline btn-sm" id="remind-all-btn">Remind All</button>' : '') +
@@ -1092,10 +1142,10 @@
 
   // ================= CUSTOMER =================
   async function renderCustomerShell() {
-    $app.innerHTML = shellHtml('My Vehicles', null, null);
-    document.getElementById('logout-btn').addEventListener('click', logout);
+    $app.innerHTML = shellHtml('My Vehicles', CUSTOMER_TABS, state.customerTab);
+    bindShellEvents(renderCustomerTab, 'customerTab');
     await loadCustomerData();
-    renderCustomerDashboard();
+    renderCustomerTab();
   }
 
   async function loadCustomerData() {
@@ -1105,6 +1155,15 @@
       toast(err.message, 'error');
       if (/unauthorized/i.test(err.message)) logout();
     }
+  }
+
+  function renderCustomerTab() {
+    const nav = document.getElementById('bottom-nav');
+    if (nav) {
+      nav.querySelectorAll('.nav-item').forEach((btn) => btn.classList.toggle('active', btn.dataset.tab === state.customerTab));
+    }
+    if (state.customerTab === 'reports') return renderCustomerReports();
+    return renderCustomerDashboard();
   }
 
   function renderCustomerDashboard() {
@@ -1153,6 +1212,130 @@
     document.getElementById('contact-btn').addEventListener('click', () => window.open(d.contactWaLink, '_blank'));
   }
 
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('Could not read that file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function complaintCardHtml(c, opts) {
+    opts = opts || {};
+    const statusChip = c.status === 'resolved'
+      ? '<span class="chip chip-paid">Resolved</span>'
+      : '<span class="chip chip-due">Open</span>';
+    return (
+      '<div class="card complaint-card">' +
+        '<div class="cc-top"><div>' +
+          (opts.showCustomer ? '<div class="cc-name">' + esc(c.customerName) + (c.customerFlat ? ' · ' + esc(c.customerFlat) : '') + '</div>' : '') +
+          '<div class="cc-meta">' + vehicleIconHtml(c.vehicleType, 'sm') + esc(c.vehicleType) + ' · ' + esc(c.vehicleNumber) + ' · ' + formatDate(c.createdAt) + '</div>' +
+        '</div>' + statusChip + '</div>' +
+        '<p class="complaint-desc">' + esc(c.description) + '</p>' +
+        (c.photo ? '<img class="complaint-photo" src="' + c.photo + '" alt="Proof photo" />' : '') +
+        (c.response
+          ? '<div class="complaint-response"><strong>Response:</strong> ' + esc(c.response) + '</div>'
+          : (opts.canRespond
+              ? '<form class="complaint-respond-form" data-complaint-id="' + c.id + '">' +
+                  '<textarea name="response" rows="2" placeholder="Write a response…" required></textarea>' +
+                  '<button type="submit" class="btn btn-primary btn-sm">Send Response &amp; Resolve</button>' +
+                '</form>'
+              : '<div class="complaint-response pending">Awaiting response from ' + esc('the business') + '…</div>')) +
+      '</div>'
+    );
+  }
+
+  async function loadCustomerComplaints() {
+    try {
+      const result = await api('/customer/complaints');
+      state.customerComplaints = result.complaints;
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function renderCustomerReports() {
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading-spinner">Loading…</div>';
+    await loadCustomerComplaints();
+    const complaints = state.customerComplaints || [];
+
+    content.innerHTML =
+      '<div class="section-header"><h3>Service Reports</h3>' +
+        '<button class="btn btn-primary btn-sm" id="raise-report-btn">📷 Raise a Report</button>' +
+      '</div>' +
+      '<p style="font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;">Not happy with a wash? Raise a report with a photo — your provider will see it and respond.</p>' +
+      (complaints.length === 0
+        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📷</div>No reports raised yet.</div></div>'
+        : complaints.map((c) => complaintCardHtml(c, { showCustomer: false, canRespond: false })).join(''));
+
+    document.getElementById('raise-report-btn').addEventListener('click', openRaiseReportModal);
+  }
+
+  function openRaiseReportModal() {
+    const d = state.data;
+    const vehicles = (d && d.vehicles) || [];
+    const html =
+      '<form id="raise-report-form">' +
+        '<div class="field"><label>Vehicle</label><select name="vehicleId" required>' +
+          vehicles.map((v) => '<option value="' + v.id + '">' + esc(v.type) + ' · ' + esc(v.number) + '</option>').join('') +
+        '</select></div>' +
+        '<div class="field"><label>What went wrong?</label><textarea name="description" rows="3" required placeholder="e.g. Bike wasn\'t cleaned properly, dust still on seat…"></textarea></div>' +
+        '<div class="field"><label>Photo proof (optional)</label><input type="file" name="photo" accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp" id="report-photo-input" /><p style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">JPEG, PNG or WEBP · up to 2MB</p></div>' +
+        '<img id="report-photo-preview" class="complaint-photo hidden" alt="Preview" />' +
+        '<button type="submit" class="btn btn-primary btn-block">Submit Report</button>' +
+      '</form>';
+    const overlay = openModal('Raise a Report', html, (ov) => {
+      let photoDataUrl = null;
+      const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+      ov.querySelector('#report-photo-input').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) { photoDataUrl = null; return; }
+        if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+          toast('Photo must be a JPEG, PNG or WEBP image', 'error');
+          e.target.value = '';
+          photoDataUrl = null;
+          return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+          toast('Photo must be under 2MB', 'error');
+          e.target.value = '';
+          photoDataUrl = null;
+          return;
+        }
+        try {
+          photoDataUrl = await readFileAsDataUrl(file);
+          const preview = ov.querySelector('#report-photo-preview');
+          preview.src = photoDataUrl;
+          preview.classList.remove('hidden');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+
+      ov.querySelector('#raise-report-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/customer/complaints', {
+            method: 'POST',
+            body: JSON.stringify({
+              vehicleId: f.get('vehicleId'),
+              description: f.get('description'),
+              photo: photoDataUrl,
+            }),
+          });
+          toast('Report submitted', 'success');
+          overlay.remove();
+          renderCustomerReports();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
   // ================= SUPER ADMIN =================
   async function renderAdminShell() {
     $app.innerHTML = shellHtml('Platform Overview', ADMIN_TABS, state.adminTab);
@@ -1191,14 +1374,14 @@
 
     content.innerHTML =
       '<div class="overview-row">' +
-        '<div class="overview-card"><div class="ov-value">' + overview.totalClients + '</div><div class="ov-label">Businesses</div></div>' +
-        '<div class="overview-card"><div class="ov-value">' + overview.totalCustomers + '</div><div class="ov-label">Customers</div></div>' +
-        '<div class="overview-card"><div class="ov-value">' + overview.totalVehicles + '</div><div class="ov-label">Vehicles</div></div>' +
-        '<div class="overview-card"><div class="ov-value">' + money(overview.totalRevenue) + '</div><div class="ov-label">Total Revenue</div></div>' +
+        ovCardHtml('🏢', overview.totalClients, 'Businesses') +
+        ovCardHtml('👥', overview.totalCustomers, 'Customers') +
+        ovCardHtml('🚗', overview.totalVehicles, 'Vehicles') +
+        ovCardHtml('💰', money(overview.totalRevenue), 'Total Revenue') +
       '</div>' +
       '<div class="overview-row overview-row-sm">' +
-        '<div class="overview-card"><div class="ov-value">' + overview.totalStaff + '</div><div class="ov-label">Staff</div></div>' +
-        '<div class="overview-card"><div class="ov-value">' + overview.pendingRequests + '</div><div class="ov-label">Pending Requests</div></div>' +
+        ovCardHtml('🧰', overview.totalStaff, 'Staff') +
+        ovCardHtml('📝', overview.pendingRequests, 'Pending Requests') +
       '</div>' +
       (overview.monthlyRevenue.length === 0 ? '' :
         '<div class="section-header"><h3>Revenue Trend</h3></div>' +
