@@ -5,6 +5,14 @@ const mysql = require('mysql2/promise');
 
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 const MYSQL_URL = process.env.MYSQL_URL || process.env.DATABASE_URL;
+// Discrete fields avoid URL-encoding issues when a password contains
+// characters like @ : / % that break mysql://user:password@host parsing.
+const MYSQL_HOST = process.env.MYSQL_HOST;
+const MYSQL_PORT = process.env.MYSQL_PORT;
+const MYSQL_USER = process.env.MYSQL_USER;
+const MYSQL_PASSWORD = process.env.MYSQL_PASSWORD;
+const MYSQL_DATABASE = process.env.MYSQL_DATABASE;
+const HAS_MYSQL_CONFIG = !!(MYSQL_URL || MYSQL_HOST);
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DBNAME = process.env.MONGODB_DBNAME || 'wheelcare';
 const DOC_ID = 'wheelcare';
@@ -19,7 +27,10 @@ function loadSeedFromDisk() {
 }
 
 async function connectMysql() {
-  mysqlPool = mysql.createPool(MYSQL_URL);
+  const connectionConfig = MYSQL_HOST
+    ? { host: MYSQL_HOST, port: Number(MYSQL_PORT) || 3306, user: MYSQL_USER, password: MYSQL_PASSWORD, database: MYSQL_DATABASE }
+    : MYSQL_URL;
+  mysqlPool = mysql.createPool(connectionConfig);
   await mysqlPool.query(
     'CREATE TABLE IF NOT EXISTS wheelcare_state (id VARCHAR(20) PRIMARY KEY, data LONGTEXT)'
   );
@@ -56,7 +67,7 @@ async function connectMongo() {
 }
 
 async function connect() {
-  if (MYSQL_URL) {
+  if (HAS_MYSQL_CONFIG) {
     try {
       return await connectMysql();
     } catch (err) {
@@ -71,9 +82,9 @@ async function connect() {
     }
   }
   console.log(
-    MYSQL_URL || MONGODB_URI
+    HAS_MYSQL_CONFIG || MONGODB_URI
       ? 'Database connection failed — using local data/db.json (data will NOT survive a redeploy)'
-      : 'No MYSQL_URL or MONGODB_URI set — using local data/db.json (data will NOT survive a redeploy)'
+      : 'No MYSQL_HOST/MYSQL_URL or MONGODB_URI set — using local data/db.json (data will NOT survive a redeploy)'
   );
   cachedDB = loadSeedFromDisk();
   backend = 'file';
