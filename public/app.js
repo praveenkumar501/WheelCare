@@ -158,7 +158,7 @@
             '<button class="btn btn-primary" id="get-started-btn">Get Started Free</button>' +
             '<button class="btn btn-outline-light" id="hero-login-btn">I already have an account</button>' +
           '</div>' +
-          '<div class="hero-illustration">' + HERO_ILLUSTRATION_HTML + '</div>' +
+          '<div class="hero-stage"><div class="hero-illustration">' + HERO_ILLUSTRATION_HTML + '</div></div>' +
         '</section>' +
         '<section class="landing-steps">' +
           '<h2 class="landing-section-title">How it works</h2>' +

@@ -219,9 +219,33 @@ a { color: inherit; text-decoration: none; }
 @media (min-width: 480px) { .landing-cta-row { flex-direction: row; } }
 .landing-cta-row .btn { min-width: 200px; }
 
+.hero-stage {
+  position: relative;
+  margin: 56px auto 64px;
+  padding: 48px 24px 0;
+  border-radius: 32px;
+  overflow: hidden;
+  background:
+    radial-gradient(700px 320px at 50% -10%, rgba(245, 165, 36, 0.55), transparent 65%),
+    radial-gradient(900px 400px at 50% 0%, rgba(255, 91, 46, 0.16), transparent 70%),
+    linear-gradient(180deg, #050708 0%, #0A0D10 45%, #14100A 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.hero-stage::after {
+  content: '';
+  position: absolute; left: 0; right: 0; bottom: 0; height: 46%;
+  background:
+    linear-gradient(180deg, transparent 0%, rgba(245, 165, 36, 0.10) 100%),
+    repeating-linear-gradient(180deg, rgba(255,255,255,0.05) 0px, transparent 1px, transparent 3px);
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 60%);
+  mask-image: linear-gradient(180deg, transparent, #000 60%);
+  pointer-events: none;
+}
 .hero-illustration {
+  position: relative; z-index: 1;
   display: flex; align-items: center; justify-content: center;
-  gap: 28px; margin: 56px auto 64px;
+  gap: 28px; padding-bottom: 48px;
 }
 .vehicle-tile {
   position: relative;
