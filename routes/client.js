@@ -141,6 +141,8 @@ module.exports = function registerClientRoutes(app, authenticate) {
         rates: client.rates || { Bike: 300, Car: 700 },
         servicePaused: !!client.servicePaused, pauseReason: client.pauseReason || '',
         dailyBookingLimit: client.dailyBookingLimit || 100,
+        serviceStartTime: client.serviceStartTime || '', serviceEndTime: client.serviceEndTime || '',
+        weeklyOffDay: client.weeklyOffDay || '',
       },
       month,
       totalCollected,
@@ -619,10 +621,14 @@ module.exports = function registerClientRoutes(app, authenticate) {
     res.json({ rates: client.rates, updatedVehicles });
   });
 
+  const TIME_HHMM_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  const WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
   app.put('/api/client/service-status', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { paused, reason, dailyBookingLimit } = req.body || {};
-    if (typeof paused !== 'boolean') {
+    const { paused, reason, dailyBookingLimit, startTime, endTime, weeklyOffDay } = req.body || {};
+
+    if (paused !== undefined && typeof paused !== 'boolean') {
       return res.status(400).json({ error: 'paused must be true or false' });
     }
     if (dailyBookingLimit !== undefined) {
@@ -631,17 +637,38 @@ module.exports = function registerClientRoutes(app, authenticate) {
         return res.status(400).json({ error: 'dailyBookingLimit must be a whole number between 1 and 1000' });
       }
     }
+    if (startTime !== undefined && !TIME_HHMM_REGEX.test(startTime)) {
+      return res.status(400).json({ error: 'startTime must be in HH:MM format' });
+    }
+    if (endTime !== undefined && !TIME_HHMM_REGEX.test(endTime)) {
+      return res.status(400).json({ error: 'endTime must be in HH:MM format' });
+    }
+    if (weeklyOffDay !== undefined && weeklyOffDay !== '' && !WEEKDAY_NAMES.includes(weeklyOffDay)) {
+      return res.status(400).json({ error: 'weeklyOffDay must be a valid day name or empty' });
+    }
 
     const db = readDB();
     const client = db.clients.find((c) => c.id === clientId);
     if (!client) return res.status(404).json({ error: 'Client not found' });
 
-    client.servicePaused = paused;
-    client.pauseReason = paused ? String(reason || '').trim().slice(0, 200) : '';
+    if (paused !== undefined) {
+      client.servicePaused = paused;
+      client.pauseReason = paused ? String(reason || '').trim().slice(0, 200) : '';
+    }
     if (dailyBookingLimit !== undefined) client.dailyBookingLimit = Number(dailyBookingLimit);
+    if (startTime !== undefined) client.serviceStartTime = startTime;
+    if (endTime !== undefined) client.serviceEndTime = endTime;
+    if (weeklyOffDay !== undefined) client.weeklyOffDay = weeklyOffDay;
 
     writeDB(db);
-    res.json({ servicePaused: client.servicePaused, pauseReason: client.pauseReason, dailyBookingLimit: client.dailyBookingLimit });
+    res.json({
+      servicePaused: !!client.servicePaused,
+      pauseReason: client.pauseReason || '',
+      dailyBookingLimit: client.dailyBookingLimit || 100,
+      serviceStartTime: client.serviceStartTime || '',
+      serviceEndTime: client.serviceEndTime || '',
+      weeklyOffDay: client.weeklyOffDay || '',
+    });
   });
 
   // ---------- Service quality reports ----------

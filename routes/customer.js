@@ -35,6 +35,8 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
       client: {
         businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area,
         servicePaused: !!client.servicePaused, pauseReason: client.pauseReason || '',
+        serviceStartTime: client.serviceStartTime || '', serviceEndTime: client.serviceEndTime || '',
+        weeklyOffDay: client.weeklyOffDay || '',
       },
       dailyBookingLimit: client.dailyBookingLimit || 100,
       month,
@@ -95,14 +97,19 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
   // ---------- Wash bookings ----------
   app.get('/api/customer/bookings', authenticate('customer'), (req, res) => {
     const db = readDB();
+    const vehicleById = new Map(db.vehicles.map((v) => [v.id, v]));
     const bookings = (db.bookings || [])
       .filter((b) => b.customerId === req.session.id)
+      .map((b) => {
+        const vehicle = vehicleById.get(b.vehicleId);
+        return { ...b, vehicleType: vehicle ? vehicle.type : '', vehicleNumber: vehicle ? vehicle.number : '' };
+      })
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     res.json({ bookings });
   });
 
   app.post('/api/customer/bookings', authenticate('customer'), (req, res) => {
-    const { vehicleId, preferredDate, notes } = req.body || {};
+    const { vehicleId, preferredDate, preferredTime, notes } = req.body || {};
     if (!vehicleId || !preferredDate) {
       return res.status(400).json({ error: 'vehicleId and preferredDate are required' });
     }
@@ -113,12 +120,20 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
     if (new Date(preferredDate) < today) {
       return res.status(400).json({ error: 'preferredDate cannot be in the past' });
     }
+    if (preferredTime !== undefined && preferredTime !== '' && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(preferredTime)) {
+      return res.status(400).json({ error: 'preferredTime must be in HH:MM format' });
+    }
 
     const db = readDB();
     const customer = db.customers.find((c) => c.id === req.session.id);
     const client = db.clients.find((c) => c.id === customer.clientId);
     if (client && client.servicePaused) {
       return res.status(403).json({ error: 'New wash bookings are paused' + (client.pauseReason ? `: ${client.pauseReason}` : '.') });
+    }
+    if (preferredTime && client && client.serviceStartTime && client.serviceEndTime) {
+      if (preferredTime < client.serviceStartTime || preferredTime >= client.serviceEndTime) {
+        return res.status(400).json({ error: `preferredTime must be between ${client.serviceStartTime} and ${client.serviceEndTime}` });
+      }
     }
     const vehicle = db.vehicles.find((v) => v.id === vehicleId && v.customerId === customer.id);
     if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
@@ -138,6 +153,7 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
       customerId: customer.id,
       vehicleId,
       preferredDate,
+      preferredTime: preferredTime || '',
       notes: (notes || '').trim().slice(0, 300),
       status: 'pending',
       clientNote: '',

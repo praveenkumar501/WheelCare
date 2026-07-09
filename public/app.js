@@ -146,6 +146,40 @@
     return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
+  function formatTime12h(hhmm) {
+    if (!hhmm) return '';
+    const [h, m] = hhmm.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + (m ? ':' + String(m).padStart(2, '0') : '') + ' ' + period;
+  }
+
+  function generateTimeSlots(startTime, endTime, stepMinutes) {
+    if (!startTime || !endTime) return [];
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    const start = sh * 60 + sm;
+    const end = eh * 60 + em;
+    const slots = [];
+    for (let t = start; t < end; t += stepMinutes) {
+      const h = String(Math.floor(t / 60)).padStart(2, '0');
+      const m = String(t % 60).padStart(2, '0');
+      slots.push(h + ':' + m);
+    }
+    return slots;
+  }
+
+  function businessHoursNoteHtml(client) {
+    if (!client || (!client.serviceStartTime && !client.weeklyOffDay)) return '';
+    const parts = [];
+    if (client.serviceStartTime && client.serviceEndTime) {
+      parts.push(formatTime12h(client.serviceStartTime) + ' – ' + formatTime12h(client.serviceEndTime) + ' daily');
+    }
+    if (client.weeklyOffDay) parts.push('Closed on ' + esc(client.weeklyOffDay) + 's');
+    if (!parts.length) return '';
+    return '<div class="info-note"><span class="in-icon">🕙</span>' + parts.join(' · ') + '</div>';
+  }
+
   function logout() {
     state.token = null; state.role = null; state.user = null; state.data = null;
     state.view = 'login';
@@ -304,11 +338,6 @@
   }
 
   // ================= LOGIN =================
-  const ROLE_HINTS = {
-    client: 'Demo username: praveen · password: password123',
-    customer: 'Demo username: anita · password: password123',
-    superadmin: 'Demo username: admin · password: password123',
-  };
   const ROLE_LABELS = { client: 'Business', customer: 'Customer', superadmin: 'Super Admin' };
 
   function renderLogin(errorMsg) {
@@ -335,7 +364,6 @@
               (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '<span></span>') +
               '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
             '</div>' +
-            '<div class="auth-hint">' + ROLE_HINTS[state.loginRole] + '</div>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -650,9 +678,7 @@
 
     content.innerHTML =
       '<div class="section-header"><h3>Wash Bookings<span class="count-badge">' + pendingCount + ' pending</span></h3></div>' +
-      (bookings.length === 0
-        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📅</div>No bookings yet.</div></div>'
-        : bookings.map((b) => bookingCardHtml(b, { showCustomer: true, canRespond: true })).join(''));
+      monthGroupedBookingsHtml(bookings, { showCustomer: true, canRespond: true });
 
     content.querySelectorAll('[data-accept-booking]').forEach((btn) => {
       btn.addEventListener('click', () => respondBooking(btn.dataset.acceptBooking, 'accepted'));
@@ -717,6 +743,23 @@
           '<button type="submit" class="btn btn-primary btn-block">Update Rates for All Vehicles</button>' +
         '</form>' +
       '</div>' +
+      '<div class="section-header"><h3>Business Hours</h3></div>' +
+      '<div class="card">' +
+        '<div class="info-note"><span class="in-icon">🕙</span>Shown to every customer on their dashboard and when booking a wash.</div>' +
+        '<form id="hours-form">' +
+          '<div class="form-grid">' +
+            '<div class="field"><label>Opens</label><input name="startTime" type="time" value="' + esc(d.client.serviceStartTime || '10:00') + '" /></div>' +
+            '<div class="field"><label>Closes</label><input name="endTime" type="time" value="' + esc(d.client.serviceEndTime || '13:00') + '" /></div>' +
+          '</div>' +
+          '<div class="field"><label>Weekly off day</label><select name="weeklyOffDay">' +
+            '<option value="">— None —</option>' +
+            ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) =>
+              '<option value="' + day + '"' + (d.client.weeklyOffDay === day ? ' selected' : '') + '>' + day + '</option>'
+            ).join('') +
+          '</select></div>' +
+          '<button type="submit" class="btn btn-outline btn-block" style="margin-top:4px;">Save Hours</button>' +
+        '</form>' +
+      '</div>' +
       '<div class="section-header"><h3>Service Status</h3></div>' +
       '<div class="card">' +
         '<div class="info-note"><span class="in-icon">🚰</span>Pause new vehicle bookings and wash requests temporarily — for example during a water shortage. Existing customers and vehicles are not affected.</div>' +
@@ -740,6 +783,23 @@
 
     disableUntilDirty(content.querySelector('#profile-form'));
     disableUntilDirty(content.querySelector('#rates-form'));
+    disableUntilDirty(content.querySelector('#hours-form'));
+
+    content.querySelector('#hours-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      try {
+        await api('/client/service-status', {
+          method: 'PUT',
+          body: JSON.stringify({ startTime: f.get('startTime'), endTime: f.get('endTime'), weeklyOffDay: f.get('weeklyOffDay') }),
+        });
+        toast('Business hours updated', 'success');
+        await loadClientData();
+        renderClientTab();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
 
     const pauseToggle = content.querySelector('#pause-form input[name="paused"]');
     const pauseReasonField = content.querySelector('#pause-reason-field');
@@ -1631,6 +1691,7 @@
           '<div><div class="provider-name">' + esc(d.client.businessName) + '</div>' +
           '<div class="provider-meta">' + esc(d.client.ownerName) + (d.client.area ? ' · ' + esc(d.client.area) : '') + '</div></div>' +
         '</div>' +
+        businessHoursNoteHtml(d.client) +
         '<button class="btn btn-navy btn-block" id="contact-btn" style="margin-top:14px;">💬 Message on WhatsApp</button>' +
       '</div>';
 
@@ -1811,7 +1872,7 @@
       '<div class="card complaint-card">' +
         '<div class="cc-top"><div' + (opts.showCustomer ? ' class="clickable-row" data-open-customer="' + b.customerId + '"' : '') + '>' +
           (opts.showCustomer ? '<div class="cc-name">' + esc(b.customerName) + (b.customerFlat ? ' · ' + esc(b.customerFlat) : '') + '</div>' : '') +
-          '<div class="cc-meta">' + vehicleIconHtml(b.vehicleType, 'sm') + esc(b.vehicleType) + ' · ' + esc(b.vehicleNumber) + ' · Preferred: ' + formatDate(b.preferredDate) + '</div>' +
+          '<div class="cc-meta">' + vehicleIconHtml(b.vehicleType, 'sm') + esc(b.vehicleType) + ' · ' + esc(b.vehicleNumber) + ' · Preferred: ' + formatDate(b.preferredDate) + (b.preferredTime ? ', ' + formatTime12h(b.preferredTime) : '') + '</div>' +
         '</div><span class="chip ' + chip.cls + '">' + chip.label + '</span></div>' +
         (b.notes ? '<p class="complaint-desc">' + esc(b.notes) + '</p>' : '') +
         (b.clientNote ? '<div class="complaint-response"><strong>Note:</strong> ' + esc(b.clientNote) + '</div>' : '') +
@@ -1826,6 +1887,28 @@
           : '') +
       '</div>'
     );
+  }
+
+  function monthGroupedBookingsHtml(bookings, opts) {
+    if (bookings.length === 0) {
+      return '<div class="card"><div class="empty-state"><div class="empty-icon">📅</div>No bookings yet.</div></div>';
+    }
+    const groups = new Map();
+    bookings.forEach((b) => {
+      const m = b.preferredDate.slice(0, 7);
+      if (!groups.has(m)) groups.set(m, []);
+      groups.get(m).push(b);
+    });
+    const months = [...groups.keys()].sort().reverse();
+    return months.map((m) => {
+      const rows = groups.get(m);
+      return (
+        '<div class="month-group">' +
+          '<div class="month-group-header"><span>' + esc(monthLabel(m)) + '</span><span class="month-group-total">' + rows.length + '</span></div>' +
+          rows.map((b) => bookingCardHtml(b, opts)).join('') +
+        '</div>'
+      );
+    }).join('');
   }
 
   async function loadCustomerBookings() {
@@ -1849,9 +1932,7 @@
         '<button class="btn btn-primary btn-sm" id="book-wash-btn">📅 Book a Wash</button>' +
       '</div>' +
       '<p style="font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;">Request a wash for a preferred date — your provider will confirm it.</p>' +
-      (bookings.length === 0
-        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📅</div>No bookings yet.</div></div>'
-        : bookings.map((b) => bookingCardHtml(b, { showCustomer: false, canRespond: false })).join(''));
+      monthGroupedBookingsHtml(bookings, { showCustomer: false, canRespond: false });
 
     document.getElementById('book-wash-btn').addEventListener('click', openBookWashModal);
   }
@@ -1860,15 +1941,24 @@
     const d = state.data;
     const vehicles = (d && d.vehicles) || [];
     const today = new Date().toISOString().slice(0, 10);
+    const slots = d && d.client ? generateTimeSlots(d.client.serviceStartTime, d.client.serviceEndTime, 30) : [];
     const html =
       (d && d.client && d.client.servicePaused
         ? '<div class="info-note" style="background:var(--red-light);color:var(--red);"><span class="in-icon">🚰</span>New wash bookings are paused' + (d.client.pauseReason ? ': ' + esc(d.client.pauseReason) : '.') + '</div>'
-        : '<form id="book-wash-form">' +
+        : businessHoursNoteHtml(d && d.client) +
+          '<form id="book-wash-form">' +
             '<div class="field"><label>Vehicle</label><select name="vehicleId" required>' +
               vehicles.map((v) => '<option value="' + v.id + '">' + esc(v.type) + ' · ' + esc(v.number) + '</option>').join('') +
             '</select></div>' +
-            '<div class="field"><label>Preferred Date</label><input type="date" name="preferredDate" required min="' + today + '" value="' + today + '" /></div>' +
-            '<div class="field"><label>Notes (optional)</label><textarea name="notes" rows="2" placeholder="e.g. Please come before 10am"></textarea></div>' +
+            '<div class="form-grid">' +
+              '<div class="field"><label>Preferred Date</label><input type="date" name="preferredDate" required min="' + today + '" value="' + today + '" /></div>' +
+              (slots.length
+                ? '<div class="field"><label>Preferred Time</label><select name="preferredTime" required>' +
+                    slots.map((s) => '<option value="' + s + '">' + esc(formatTime12h(s)) + '</option>').join('') +
+                  '</select></div>'
+                : '') +
+            '</div>' +
+            '<div class="field"><label>Notes (optional)</label><textarea name="notes" rows="2" placeholder="e.g. Please ring the bell"></textarea></div>' +
             '<button type="submit" class="btn btn-primary btn-block">Request Booking</button>' +
           '</form>');
     const overlay = openModal('Book a Wash', html, (ov) => {
@@ -1880,7 +1970,10 @@
         try {
           await api('/customer/bookings', {
             method: 'POST',
-            body: JSON.stringify({ vehicleId: f.get('vehicleId'), preferredDate: f.get('preferredDate'), notes: f.get('notes') }),
+            body: JSON.stringify({
+              vehicleId: f.get('vehicleId'), preferredDate: f.get('preferredDate'),
+              preferredTime: f.get('preferredTime') || '', notes: f.get('notes'),
+            }),
           });
           toast('Booking requested', 'success');
           overlay.remove();
