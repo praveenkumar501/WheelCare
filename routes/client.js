@@ -13,13 +13,13 @@ const {
   buildOrigin,
   buildLoginLink,
   buildSetPasswordLink,
-  generateUsername,
   buildPasswordSetupToken,
   isValidPhone,
   isValidVehicleType,
   isValidPlanAmount,
   isValidVehicleNumber,
   normalizeVehicleNumber,
+  isValidUsername,
   PAYMENT_METHODS,
   sanitizeClient,
 } = require('../utils');
@@ -159,12 +159,16 @@ module.exports = function registerClientRoutes(app, authenticate) {
   // ---------- Customers ----------
   app.post('/api/client/customers', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { name, phone, flat, vehicle } = req.body || {};
-    if (!name || !phone) {
-      return res.status(400).json({ error: 'name and phone are required' });
+    const { name, phone, flat, vehicle, username } = req.body || {};
+    if (!name || !phone || !username) {
+      return res.status(400).json({ error: 'name, phone and username are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
+    }
+    const cleanUsername = String(username).trim().toLowerCase();
+    if (!isValidUsername(cleanUsername)) {
+      return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
     }
     if (vehicle && (vehicle.type || vehicle.number || vehicle.planAmount)) {
       if (!isValidVehicleType(vehicle.type)) {
@@ -185,8 +189,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
       return res.status(403).json({ error: 'New vehicle bookings are paused' + (client.pauseReason ? `: ${client.pauseReason}` : '.') + ' You can still add this customer without a vehicle.' });
     }
 
-    const existingUsernames = new Set(db.customers.map((c) => c.username));
-    const username = generateUsername(existingUsernames, name);
+    if (db.customers.some((c) => c.username === cleanUsername)) {
+      return res.status(409).json({ error: 'That username is already taken' });
+    }
     const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
     const customer = {
       id: nextId(db, 'customers', 'cu'),
@@ -194,7 +199,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       name,
       phone,
       flat: flat || '',
-      username,
+      username: cleanUsername,
       password: null,
       passwordSetupToken: setupToken,
       passwordSetupTokenExpiresAt: setupTokenExpiresAt,

@@ -2,7 +2,7 @@ const { readDB, writeDB, nextId } = require('../db');
 const {
   sanitizeClient, isValidPhone, generateUsername, buildPasswordSetupToken,
   buildOrigin, buildPasswordSetupPromptMessage, buildWaLink, buildSmsLink,
-  hashPassword, isValidPassword, MIN_PASSWORD_LENGTH,
+  hashPassword, isValidPassword, MIN_PASSWORD_LENGTH, isValidUsername,
 } = require('../utils');
 
 module.exports = function registerAdminRoutes(app, authenticate) {
@@ -60,24 +60,29 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   });
 
   app.post('/api/admin/clients', authenticate('superadmin'), (req, res) => {
-    const { businessName, ownerName, phone, area } = req.body || {};
-    if (!businessName || !ownerName || !phone) {
-      return res.status(400).json({ error: 'businessName, ownerName and phone are required' });
+    const { businessName, ownerName, phone, area, username } = req.body || {};
+    if (!businessName || !ownerName || !phone || !username) {
+      return res.status(400).json({ error: 'businessName, ownerName, phone and username are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
     }
 
     const db = readDB();
-    const existingUsernames = new Set(db.clients.map((c) => c.username));
-    const username = generateUsername(existingUsernames, ownerName || businessName);
+    const cleanUsername = String(username).trim().toLowerCase();
+    if (!isValidUsername(cleanUsername)) {
+      return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
+    }
+    if (db.clients.some((c) => c.username === cleanUsername)) {
+      return res.status(409).json({ error: 'That username is already taken' });
+    }
     const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
 
     const client = {
       id: nextId(db, 'clients', 'c'),
       businessName,
       ownerName,
-      username,
+      username: cleanUsername,
       password: null,
       passwordSetupToken: setupToken,
       passwordSetupTokenExpiresAt: setupTokenExpiresAt,
@@ -92,11 +97,11 @@ module.exports = function registerAdminRoutes(app, authenticate) {
 
     const origin = buildOrigin(req);
     const setupLink = `${origin}/#/set-password?role=client&token=${setupToken}`;
-    const message = buildPasswordSetupPromptMessage({ customerName: ownerName, businessName: 'WheelCare', username, setupLink });
+    const message = buildPasswordSetupPromptMessage({ customerName: ownerName, businessName: 'WheelCare', username: cleanUsername, setupLink });
 
     res.status(201).json({
       client: clientStats(db, client),
-      username,
+      username: cleanUsername,
       waLink: buildWaLink(phone, message),
       smsLink: buildSmsLink(phone, message),
     });

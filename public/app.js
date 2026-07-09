@@ -447,6 +447,32 @@
     });
   }
 
+  function wireUsernameAvailability(usernameInput, availabilityNote, role) {
+    let usernameCheckTimer = null;
+    usernameInput.addEventListener('input', () => {
+      clearTimeout(usernameCheckTimer);
+      const val = usernameInput.value.trim().toLowerCase();
+      if (!val) { availabilityNote.textContent = ''; return; }
+      if (!/^[a-z0-9]{3,20}$/.test(val)) {
+        availabilityNote.textContent = '3-20 lowercase letters/numbers, no spaces';
+        availabilityNote.style.color = 'var(--red)';
+        return;
+      }
+      availabilityNote.textContent = 'Checking…';
+      availabilityNote.style.color = 'var(--text-muted)';
+      usernameCheckTimer = setTimeout(async () => {
+        try {
+          const data = await api('/username-availability?role=' + role + '&username=' + encodeURIComponent(val));
+          if (usernameInput.value.trim().toLowerCase() !== val) return;
+          availabilityNote.textContent = data.available ? '✓ Available' : '✕ Already taken';
+          availabilityNote.style.color = data.available ? 'var(--green)' : 'var(--red)';
+        } catch (err) {
+          availabilityNote.textContent = '';
+        }
+      }, 400);
+    });
+  }
+
   function openRegisterBusinessModal() {
     const html =
       '<form id="register-business-form">' +
@@ -465,29 +491,7 @@
     const overlay = openModal('Register Your Business', html, (ov) => {
       const usernameInput = ov.querySelector('#reg-username');
       const availabilityNote = ov.querySelector('#username-availability');
-      let usernameCheckTimer = null;
-      usernameInput.addEventListener('input', () => {
-        clearTimeout(usernameCheckTimer);
-        const val = usernameInput.value.trim().toLowerCase();
-        if (!val) { availabilityNote.textContent = ''; return; }
-        if (!/^[a-z0-9]{3,20}$/.test(val)) {
-          availabilityNote.textContent = '3-20 lowercase letters/numbers, no spaces';
-          availabilityNote.style.color = 'var(--red)';
-          return;
-        }
-        availabilityNote.textContent = 'Checking…';
-        availabilityNote.style.color = 'var(--text-muted)';
-        usernameCheckTimer = setTimeout(async () => {
-          try {
-            const data = await api('/client-requests/username-availability?username=' + encodeURIComponent(val));
-            if (usernameInput.value.trim().toLowerCase() !== val) return;
-            availabilityNote.textContent = data.available ? '✓ Available' : '✕ Already taken';
-            availabilityNote.style.color = data.available ? 'var(--green)' : 'var(--red)';
-          } catch (err) {
-            availabilityNote.textContent = '';
-          }
-        }, 400);
-      });
+      wireUsernameAvailability(usernameInput, availabilityNote, 'client');
       ov.querySelector('#register-business-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -1247,6 +1251,10 @@
             '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
             '<div class="field"><label>Flat / Unit</label><input name="flat" placeholder="A-101" /></div>' +
           '</div>' +
+          '<div class="field"><label>Choose a Username</label><input name="username" id="add-cust-username" required placeholder="e.g. rahulk101" pattern="[a-z0-9]{3,20}" title="3-20 lowercase letters/numbers, no spaces" />' +
+            '<div id="add-cust-username-availability" style="font-size:11.5px;margin-top:5px;min-height:14px;"></div>' +
+          '</div>' +
+          '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 0;">This is what the customer will log in with.</p>' +
         '</div>' +
         (isBookingPaused()
           ? pausedBookingNoticeHtml()
@@ -1271,11 +1279,12 @@
       nameInput.addEventListener('input', () => {
         avatar.textContent = nameInput.value.trim() ? initials(nameInput.value) : '👤';
       });
+      wireUsernameAvailability(ov.querySelector('#add-cust-username'), ov.querySelector('#add-cust-username-availability'), 'customer');
       ov.querySelector('#add-customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
         const payload = {
-          name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'),
+          name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'), username: f.get('username'),
         };
         if (f.get('vtype') && f.get('vnumber') && f.get('vamount')) {
           payload.vehicle = { type: f.get('vtype'), number: f.get('vnumber'), model: f.get('vmodel'), planAmount: f.get('vamount') };
@@ -2187,10 +2196,14 @@
             '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
             '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
           '</div>' +
-          '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">A login username is generated automatically. The business owner gets a WhatsApp/SMS link to set their own password.</p>' +
+          '<div class="field"><label>Choose a Username</label><input name="username" id="add-client-username" required placeholder="e.g. praveenvehiclecare" pattern="[a-z0-9]{3,20}" title="3-20 lowercase letters/numbers, no spaces" />' +
+            '<div id="add-client-username-availability" style="font-size:11.5px;margin-top:5px;min-height:14px;"></div>' +
+          '</div>' +
+          '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">This is what the business owner will log in with. They get a WhatsApp/SMS link to set their own password.</p>' +
           '<button type="submit" class="btn btn-primary btn-block">Onboard Business</button>' +
         '</form>';
       const overlay = openModal('Add Client Business', html, (ov) => {
+        wireUsernameAvailability(ov.querySelector('#add-client-username'), ov.querySelector('#add-client-username-availability'), 'client');
         ov.querySelector('#add-client-form').addEventListener('submit', async (e) => {
           e.preventDefault();
           const f = new FormData(e.target);
@@ -2199,7 +2212,7 @@
               method: 'POST',
               body: JSON.stringify({
                 businessName: f.get('businessName'), ownerName: f.get('ownerName'),
-                phone: f.get('phone'), area: f.get('area'),
+                phone: f.get('phone'), area: f.get('area'), username: f.get('username'),
               }),
             });
             toast('Business onboarded — username: ' + result.username, 'success');
