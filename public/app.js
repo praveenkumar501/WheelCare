@@ -509,7 +509,7 @@
     { id: 'bookings', icon: '📅', label: 'Bookings' },
     { id: 'staff', icon: '🧰', label: 'Staff' },
     { id: 'payments', icon: '💳', label: 'Payments' },
-    { id: 'reports', icon: '📷', label: 'Reports' },
+    { id: 'reports', icon: '📷', label: 'Complaints' },
     { id: 'profile', icon: '⚙️', label: 'Profile' },
   ];
   const ADMIN_TABS = [
@@ -520,7 +520,7 @@
     { id: 'vehicles', icon: '🏠', label: 'Vehicles' },
     { id: 'bookings', icon: '📅', label: 'Bookings' },
     { id: 'payments', icon: '💳', label: 'Payments' },
-    { id: 'reports', icon: '📷', label: 'Reports' },
+    { id: 'reports', icon: '📷', label: 'Complaints' },
   ];
 
   function shellHtml(subtitle, tabs, activeId) {
@@ -605,7 +605,7 @@
       : complaints;
 
     list.innerHTML = filtered.length === 0
-      ? '<div class="card"><div class="empty-state"><div class="empty-icon">' + (q ? '🔍' : '📷') + '</div>' + (q ? 'No reports match your search.' : 'No reports from customers yet.') + '</div></div>'
+      ? '<div class="card"><div class="empty-state"><div class="empty-icon">' + (q ? '🔍' : '📷') + '</div>' + (q ? 'No complaints match your search.' : 'No complaints from customers yet.') + '</div></div>'
       : filtered.map((c) => complaintCardHtml(c, { showCustomer: true, canRespond: c.status !== 'resolved' })).join('');
 
     list.querySelectorAll('.complaint-respond-form').forEach((form) => {
@@ -642,7 +642,7 @@
     const openCount = complaints.filter((c) => c.status !== 'resolved').length;
 
     content.innerHTML =
-      '<div class="section-header"><h3>Service Reports<span class="count-badge">' + openCount + ' open</span></h3></div>' +
+      '<div class="section-header"><h3>Complaints<span class="count-badge">' + openCount + ' open</span></h3></div>' +
       (complaints.length > 1 ? '<div class="field"><input type="search" id="reports-search" placeholder="Search by customer, vehicle number or description…" value="' + esc(state.reportsSearch) + '" /></div>' : '') +
       '<div id="reports-list"></div>';
 
@@ -1138,7 +1138,7 @@
         : '<div class="empty-state" style="padding:12px 0;">No vehicles yet</div>') +
       '<div class="divider-label">Payment History</div>' +
       '<div id="cust-detail-payments"><div class="loading-spinner">Loading…</div></div>' +
-      '<div class="divider-label">Service Reports</div>' +
+      '<div class="divider-label">Complaints</div>' +
       '<div id="cust-detail-reports"><div class="loading-spinner">Loading…</div></div>' +
       '<div style="display:flex; gap:10px; margin-top:16px;">' +
         '<button class="btn btn-outline" id="cust-detail-edit-btn" style="flex:1;">Edit Customer</button>' +
@@ -1187,7 +1187,7 @@
         const repBox = ov.querySelector('#cust-detail-reports');
         repBox.innerHTML = custComplaints.length
           ? custComplaints.map((c) => complaintCardHtml(c, { showCustomer: false, canRespond: c.status !== 'resolved' })).join('')
-          : '<div class="empty-state" style="padding:12px 0;">No reports</div>';
+          : '<div class="empty-state" style="padding:12px 0;">No complaints</div>';
 
         repBox.querySelectorAll('.complaint-respond-form').forEach((form) => {
           const photoBox = bindMultiPhotoInput(form.querySelector('.respond-photo-input'), form.querySelector('.respond-photo-preview'));
@@ -1821,12 +1821,12 @@
     const complaints = state.customerComplaints || [];
 
     content.innerHTML =
-      '<div class="section-header"><h3>Service Reports</h3>' +
-        '<button class="btn btn-primary btn-sm" id="raise-report-btn">📷 Raise a Report</button>' +
+      '<div class="section-header"><h3>Complaints</h3>' +
+        '<button class="btn btn-primary btn-sm" id="raise-report-btn">📷 Raise a Complaint</button>' +
       '</div>' +
-      '<p style="font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;">Not happy with a wash? Raise a report with a photo — your provider will see it and respond.</p>' +
+      '<p style="font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;">Not happy with a wash? Raise a complaint with a photo — your provider will see it and respond.</p>' +
       (complaints.length === 0
-        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📷</div>No reports raised yet.</div></div>'
+        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📷</div>No complaints raised yet.</div></div>'
         : complaints.map((c) => complaintCardHtml(c, { showCustomer: false, canRespond: false })).join(''));
 
     document.getElementById('raise-report-btn').addEventListener('click', openRaiseReportModal);
@@ -1843,9 +1843,9 @@
         '<div class="field"><label>What went wrong?</label><textarea name="description" rows="3" required placeholder="e.g. Bike wasn\'t cleaned properly, dust still on seat…"></textarea></div>' +
         '<div class="field"><label>Photo proof (optional)</label><input type="file" name="photos" multiple accept="image/png,image/jpeg,image/jpg,image/webp,.png,.jpg,.jpeg,.webp" id="report-photo-input" /><p style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">Up to 4 photos · JPEG, PNG or WEBP · 2MB each</p></div>' +
         '<div class="complaint-photo-grid" id="report-photo-preview"></div>' +
-        '<button type="submit" class="btn btn-primary btn-block">Submit Report</button>' +
+        '<button type="submit" class="btn btn-primary btn-block">Submit Complaint</button>' +
       '</form>';
-    const overlay = openModal('Raise a Report', html, (ov) => {
+    const overlay = openModal('Raise a Complaint', html, (ov) => {
       const photoBox = bindMultiPhotoInput(ov.querySelector('#report-photo-input'), ov.querySelector('#report-photo-preview'));
 
       ov.querySelector('#raise-report-form').addEventListener('submit', async (e) => {
@@ -1860,7 +1860,7 @@
               photos: photoBox.photos,
             }),
           });
-          toast('Report submitted', 'success');
+          toast('Complaint submitted', 'success');
           overlay.remove();
           renderCustomerReports();
         } catch (err) {
