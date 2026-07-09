@@ -1153,7 +1153,8 @@
       '<div style="display:flex; gap:10px; margin-top:16px;">' +
         '<button class="btn btn-outline" id="cust-detail-edit-btn" style="flex:1;">Edit Customer</button>' +
         '<button class="btn btn-primary" id="cust-detail-vehicle-btn" style="flex:1;">+ Add Vehicle</button>' +
-      '</div>';
+      '</div>' +
+      '<button type="button" class="btn btn-outline btn-block" id="cust-detail-reset-btn" style="margin-top:10px;">🔑 Send Reset Link</button>';
 
     const overlay = openModal(customer.name, html, async (ov) => {
       ov.querySelectorAll('[data-edit-vehicle]').forEach((btn) => {
@@ -1167,6 +1168,14 @@
       });
       ov.querySelector('#cust-detail-edit-btn').addEventListener('click', () => { overlay.remove(); openEditCustomerModal(customer); });
       ov.querySelector('#cust-detail-vehicle-btn').addEventListener('click', () => { overlay.remove(); openAddVehicleModal(customer.id, customer.name); });
+      ov.querySelector('#cust-detail-reset-btn').addEventListener('click', async () => {
+        try {
+          const result = await api('/client/customers/' + customer.id + '/resend-setup', { method: 'POST' });
+          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
 
       try {
         const [paymentsResult, complaintsResult] = await Promise.all([
