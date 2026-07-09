@@ -219,12 +219,16 @@
     form.addEventListener('change', () => { btn.disabled = snapshot() === initial; });
   }
 
-  function showSendConfirmation(overlay, waLink, smsLink, onDone) {
+  function showSendConfirmation(overlay, waLink, smsLink, onDone, opts) {
+    const warnInvalidatesPrevious = opts && opts.warnInvalidatesPrevious;
     const body = overlay.querySelector('.modal-body');
     body.innerHTML =
       '<div style="text-align:center; padding: 8px 0 4px;">' +
         '<div style="font-size:34px; margin-bottom:10px;">✅</div>' +
         '<p style="font-size:13.5px; color:var(--text-muted); margin-bottom:18px;">Send a WhatsApp or SMS notification now?</p>' +
+        (warnInvalidatesPrevious
+          ? '<p style="font-size:12px; color:var(--red); background:var(--red-light); border-radius:8px; padding:8px 10px; margin:-8px 0 16px;">⚠️ This is a brand-new link. Any link sent earlier no longer works.</p>'
+          : '') +
         '<div style="display:flex; gap:10px;">' +
           '<a href="' + waLink + '" target="_blank" rel="noopener" class="btn btn-primary" style="flex:1;">💬 WhatsApp</a>' +
           '<a href="' + smsLink + '" target="_blank" rel="noopener" class="btn btn-outline" style="flex:1;">✉️ SMS</a>' +
@@ -237,9 +241,9 @@
     });
   }
 
-  function openSendConfirmationModal(title, waLink, smsLink, onDone) {
+  function openSendConfirmationModal(title, waLink, smsLink, onDone, opts) {
     const overlay = openModal(title, '<div></div>');
-    showSendConfirmation(overlay, waLink, smsLink, onDone);
+    showSendConfirmation(overlay, waLink, smsLink, onDone, opts);
   }
 
   // ---------------- Root render ----------------
@@ -1171,7 +1175,7 @@
       ov.querySelector('#cust-detail-reset-btn').addEventListener('click', async () => {
         try {
           const result = await api('/client/customers/' + customer.id + '/resend-setup', { method: 'POST' });
-          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
+          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {}, { warnInvalidatesPrevious: true });
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -1389,7 +1393,7 @@
       ov.querySelector('#resend-setup-btn').addEventListener('click', async () => {
         try {
           const result = await api('/client/customers/' + customer.id + '/resend-setup', { method: 'POST' });
-          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
+          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {}, { warnInvalidatesPrevious: true });
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -2254,7 +2258,7 @@
       ov.querySelector('#resend-client-setup-btn').addEventListener('click', async () => {
         try {
           const result = await api('/admin/clients/' + client.id + '/resend-setup', { method: 'POST' });
-          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {});
+          showSendConfirmation(overlay, result.waLink, result.smsLink, () => {}, { warnInvalidatesPrevious: true });
         } catch (err) {
           toast(err.message, 'error');
         }
