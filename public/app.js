@@ -365,6 +365,7 @@
               '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
             '</div>' +
           '</div>' +
+          '<p class="auth-footer-credit">Developed by Praveen Kumar Athyala</p>' +
         '</div>' +
       '</div>';
 
@@ -452,6 +453,7 @@
               '<button type="submit" class="btn btn-primary btn-block">Set Password &amp; Continue</button>' +
             '</form>' +
           '</div>' +
+          '<p class="auth-footer-credit">Developed by Praveen Kumar Athyala</p>' +
         '</div>' +
       '</div>';
 
@@ -485,10 +487,38 @@
           '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
         '</div>' +
-        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">Once approved, we\'ll generate your login username and send you a WhatsApp/SMS link to set your password.</p>' +
+        '<div class="field"><label>Choose a Username (optional)</label><input name="username" id="reg-username" placeholder="e.g. praveenvehiclecare" pattern="[a-z0-9]{3,20}" title="3-20 lowercase letters/numbers, no spaces" />' +
+          '<div id="username-availability" style="font-size:11.5px;margin-top:5px;min-height:14px;"></div>' +
+        '</div>' +
+        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">This is what you\'ll log in with. Leave blank and we\'ll generate one for you. Once approved, you\'ll get a WhatsApp/SMS link to set your password.</p>' +
         '<button type="submit" class="btn btn-primary btn-block">Submit Request</button>' +
       '</form>';
     const overlay = openModal('Register Your Business', html, (ov) => {
+      const usernameInput = ov.querySelector('#reg-username');
+      const availabilityNote = ov.querySelector('#username-availability');
+      let usernameCheckTimer = null;
+      usernameInput.addEventListener('input', () => {
+        clearTimeout(usernameCheckTimer);
+        const val = usernameInput.value.trim().toLowerCase();
+        if (!val) { availabilityNote.textContent = ''; return; }
+        if (!/^[a-z0-9]{3,20}$/.test(val)) {
+          availabilityNote.textContent = '3-20 lowercase letters/numbers, no spaces';
+          availabilityNote.style.color = 'var(--red)';
+          return;
+        }
+        availabilityNote.textContent = 'Checking…';
+        availabilityNote.style.color = 'var(--text-muted)';
+        usernameCheckTimer = setTimeout(async () => {
+          try {
+            const data = await api('/client-requests/username-availability?username=' + encodeURIComponent(val));
+            if (usernameInput.value.trim().toLowerCase() !== val) return;
+            availabilityNote.textContent = data.available ? '✓ Available' : '✕ Already taken';
+            availabilityNote.style.color = data.available ? 'var(--green)' : 'var(--red)';
+          } catch (err) {
+            availabilityNote.textContent = '';
+          }
+        }, 400);
+      });
       ov.querySelector('#register-business-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -496,7 +526,7 @@
           await api('/client-requests', {
             method: 'POST',
             body: JSON.stringify({
-              businessName: f.get('businessName'), ownerName: f.get('ownerName'),
+              businessName: f.get('businessName'), ownerName: f.get('ownerName'), username: f.get('username'),
               phone: f.get('phone'), area: f.get('area'),
             }),
           });
@@ -2129,6 +2159,7 @@
                 '<div><div class="cc-name">' + esc(r.businessName) + '</div>' +
                 '<div class="cc-meta">👤 ' + esc(r.ownerName) + ' · 📞 ' + esc(r.phone) + '</div>' +
                 (r.area ? '<div class="cc-meta">📍 ' + esc(r.area) + '</div>' : '') +
+                (r.username ? '<div class="cc-meta">🔑 Requested username: ' + esc(r.username) + '</div>' : '') +
                 '</div>' +
               '</div>' +
               '<span class="chip chip-amber">New</span>' +

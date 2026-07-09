@@ -1,11 +1,22 @@
 const { readDB, writeDB } = require('../db');
 const { nextId } = require('../db');
-const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword, isPasswordSetupTokenExpired } = require('../utils');
+const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword, isPasswordSetupTokenExpired, isValidUsername } = require('../utils');
 
 module.exports = function registerPublicRoutes(app) {
   // ---------- Business registration requests ----------
+  app.get('/api/client-requests/username-availability', (req, res) => {
+    const username = String(req.query.username || '').toLowerCase();
+    if (!isValidUsername(username)) {
+      return res.json({ available: false, reason: '3-20 lowercase letters/numbers, no spaces' });
+    }
+    const db = readDB();
+    const taken = db.clients.some((c) => c.username === username)
+      || db.clientRequests.some((r) => r.status === 'pending' && r.username === username);
+    res.json({ available: !taken });
+  });
+
   app.post('/api/client-requests', (req, res) => {
-    const { businessName, ownerName, phone, area } = req.body || {};
+    const { businessName, ownerName, phone, area, username } = req.body || {};
     if (!businessName || !ownerName || !phone) {
       return res.status(400).json({ error: 'businessName, ownerName and phone are required' });
     }
@@ -14,12 +25,26 @@ module.exports = function registerPublicRoutes(app) {
     }
 
     const db = readDB();
+    let cleanUsername = '';
+    if (username && String(username).trim()) {
+      cleanUsername = String(username).trim().toLowerCase();
+      if (!isValidUsername(cleanUsername)) {
+        return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
+      }
+      const taken = db.clients.some((c) => c.username === cleanUsername)
+        || db.clientRequests.some((r) => r.status === 'pending' && r.username === cleanUsername);
+      if (taken) {
+        return res.status(409).json({ error: 'That username is already taken' });
+      }
+    }
+
     const request = {
       id: nextId(db, 'clientRequests', 'req'),
       businessName,
       ownerName,
       phone,
       area: area || '',
+      username: cleanUsername,
       status: 'pending',
       createdAt: new Date().toISOString(),
     };

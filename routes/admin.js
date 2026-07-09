@@ -191,7 +191,9 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     if (!request) return res.status(404).json({ error: 'Request not found' });
 
     const existingUsernames = new Set(db.clients.map((c) => c.username));
-    const username = generateUsername(existingUsernames, request.ownerName || request.businessName);
+    const username = (request.username && !existingUsernames.has(request.username))
+      ? request.username
+      : generateUsername(existingUsernames, request.ownerName || request.businessName);
     const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
 
     const client = {

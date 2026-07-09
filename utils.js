@@ -177,6 +177,12 @@ function isPasswordSetupTokenExpired(expiresAt) {
   return !expiresAt || new Date(expiresAt).getTime() < Date.now();
 }
 
+const USERNAME_REGEX = /^[a-z0-9]{3,20}$/;
+
+function isValidUsername(username) {
+  return USERNAME_REGEX.test(String(username || ''));
+}
+
 function generateUsername(existingUsernames, base) {
   const slug = String(base || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14) || 'user';
   let candidate = slug;
@@ -219,6 +225,8 @@ module.exports = {
   buildPasswordSetupToken,
   isPasswordSetupTokenExpired,
   generateUsername,
+  USERNAME_REGEX,
+  isValidUsername,
   sanitizeClient,
   sanitizeCustomer,
   VEHICLE_TYPES,
