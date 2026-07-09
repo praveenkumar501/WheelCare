@@ -134,4 +134,20 @@ db.ready().then(() => {
   setInterval(() => {
     console.log(`${new Date().toISOString()} heartbeat — db backend: ${db.getBackend()}`);
   }, 15 * 60 * 1000);
+
+  // Render's free tier spins the service down after ~15 min without inbound
+  // traffic, making the next visit painfully slow. Pinging our own public
+  // /api/health URL counts as traffic and keeps the instance awake.
+  // RENDER_EXTERNAL_URL is set automatically by Render; KEEP_ALIVE_URL can
+  // override it on other hosts. No env var set (e.g. local dev) = no pinging.
+  const keepAliveBase = process.env.KEEP_ALIVE_URL || process.env.RENDER_EXTERNAL_URL;
+  if (keepAliveBase) {
+    const healthUrl = `${keepAliveBase.replace(/\/$/, '')}/api/health`;
+    console.log(`keep-alive: pinging ${healthUrl} every 10 minutes`);
+    setInterval(() => {
+      fetch(healthUrl)
+        .then((res) => { if (!res.ok) console.error(`keep-alive ping got HTTP ${res.status}`); })
+        .catch((err) => console.error('keep-alive ping failed:', err.message));
+    }, 10 * 60 * 1000);
+  }
 });
