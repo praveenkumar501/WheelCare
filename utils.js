@@ -121,12 +121,13 @@ function buildReminderMessage({ customerName, businessName, vehicleType, vehicle
   );
 }
 
-function buildWelcomeMessage({ customerName, businessName, vehicleType, vehicleNumber, setupLink }) {
+function buildWelcomeMessage({ customerName, businessName, vehicleType, vehicleNumber, username, setupLink }) {
   const vehicleLine = vehicleType && vehicleNumber
     ? ` We've registered your ${vehicleType} (${vehicleNumber}) for the monthly wash plan.`
     : '';
   return (
     `Hi ${customerName}, welcome to ${businessName}!${vehicleLine} ` +
+    `Your login username is: ${username}. ` +
     `Tap here to set your password and access your account: ${setupLink}. Thank you!`
   );
 }
@@ -142,9 +143,10 @@ function buildPaymentReceiptMessage({ customerName, businessName, vehicleType, v
   );
 }
 
-function buildPasswordSetupPromptMessage({ customerName, businessName, setupLink }) {
+function buildPasswordSetupPromptMessage({ customerName, businessName, username, setupLink }) {
   return (
-    `Hi ${customerName}, ${businessName} sent you a link to set (or reset) your account password: ${setupLink}. ` +
+    `Hi ${customerName}, ${businessName} sent you a link to set (or reset) your account password. ` +
+    `Your login username is: ${username}. Set your password here: ${setupLink}. ` +
     `If you didn't request this, you can ignore it.`
   );
 }

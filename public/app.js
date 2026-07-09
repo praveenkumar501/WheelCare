@@ -769,8 +769,8 @@
             '<span class="toggle-switch"><input type="checkbox" name="paused"' + (d.client.servicePaused ? ' checked' : '') + ' /><span class="toggle-track"></span></span>' +
           '</label>' +
           '<div class="field" id="pause-reason-field" style="margin-top:12px;' + (d.client.servicePaused ? '' : 'display:none;') + '">' +
-            '<label>Reason shown to customers</label>' +
-            '<input name="reason" placeholder="e.g. Temporary water shortage" maxlength="200" value="' + esc(d.client.pauseReason || '') + '" />' +
+            '<label>Reason shown to customers <span style="color:var(--red);">*</span></label>' +
+            '<input name="reason" placeholder="e.g. Temporary water shortage" maxlength="200" value="' + esc(d.client.pauseReason || '') + '"' + (d.client.servicePaused ? ' required' : '') + ' />' +
           '</div>' +
           '<div class="field" style="margin-top:12px;">' +
             '<label>Daily wash booking limit</label>' +
@@ -803,8 +803,10 @@
 
     const pauseToggle = content.querySelector('#pause-form input[name="paused"]');
     const pauseReasonField = content.querySelector('#pause-reason-field');
+    const pauseReasonInput = pauseReasonField.querySelector('input[name="reason"]');
     pauseToggle.addEventListener('change', () => {
       pauseReasonField.style.display = pauseToggle.checked ? '' : 'none';
+      pauseReasonInput.required = pauseToggle.checked;
     });
     content.querySelector('#pause-form').addEventListener('submit', async (e) => {
       e.preventDefault();

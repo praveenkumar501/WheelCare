@@ -92,7 +92,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
 
     const origin = buildOrigin(req);
     const setupLink = `${origin}/#/set-password?role=client&token=${setupToken}`;
-    const message = buildPasswordSetupPromptMessage({ customerName: ownerName, businessName: 'WheelCare', setupLink });
+    const message = buildPasswordSetupPromptMessage({ customerName: ownerName, businessName: 'WheelCare', username, setupLink });
 
     res.status(201).json({
       client: clientStats(db, client),
@@ -151,7 +151,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
 
     const origin = buildOrigin(req);
     const setupLink = `${origin}/#/set-password?role=client&token=${setupToken}`;
-    const message = buildPasswordSetupPromptMessage({ customerName: client.ownerName, businessName: 'WheelCare', setupLink });
+    const message = buildPasswordSetupPromptMessage({ customerName: client.ownerName, businessName: 'WheelCare', username: client.username, setupLink });
 
     res.json({
       username: client.username,
@@ -214,7 +214,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
 
     const origin = buildOrigin(req);
     const setupLink = `${origin}/#/set-password?role=client&token=${setupToken}`;
-    const message = buildPasswordSetupPromptMessage({ customerName: client.ownerName, businessName: 'WheelCare', setupLink });
+    const message = buildPasswordSetupPromptMessage({ customerName: client.ownerName, businessName: 'WheelCare', username: client.username, setupLink });
 
     res.json({
       client: clientStats(db, client),

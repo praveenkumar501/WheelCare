@@ -224,6 +224,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       businessName: client.businessName,
       vehicleType: createdVehicle && createdVehicle.type,
       vehicleNumber: createdVehicle && createdVehicle.number,
+      username: customer.username,
       setupLink,
     });
 
@@ -273,7 +274,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
     writeDB(db);
 
     const setupLink = buildSetPasswordLink(buildOrigin(req), 'customer', setupToken);
-    const message = buildPasswordSetupPromptMessage({ customerName: customer.name, businessName: client.businessName, setupLink });
+    const message = buildPasswordSetupPromptMessage({ customerName: customer.name, businessName: client.businessName, username: customer.username, setupLink });
 
     res.json({
       username: customer.username,
@@ -630,6 +631,9 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
     if (paused !== undefined && typeof paused !== 'boolean') {
       return res.status(400).json({ error: 'paused must be true or false' });
+    }
+    if (paused === true && (!reason || !String(reason).trim())) {
+      return res.status(400).json({ error: 'A reason is required when pausing new bookings' });
     }
     if (dailyBookingLimit !== undefined) {
       const n = Number(dailyBookingLimit);
