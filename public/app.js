@@ -45,6 +45,8 @@
     adminOverview: null,
     clientComplaints: null,
     customerComplaints: null,
+    customerBookings: null,
+    clientBookings: null,
     customerSearch: '',
     staffSearch: '',
     paymentsSearch: '',
@@ -483,6 +485,7 @@
   const CLIENT_TABS = [
     { id: 'home', icon: '🏠', label: 'Home' },
     { id: 'customers', icon: '👥', label: 'Customers' },
+    { id: 'bookings', icon: '📅', label: 'Bookings' },
     { id: 'staff', icon: '🧰', label: 'Staff' },
     { id: 'payments', icon: '💳', label: 'Payments' },
     { id: 'reports', icon: '📷', label: 'Reports' },
@@ -494,6 +497,7 @@
   ];
   const CUSTOMER_TABS = [
     { id: 'vehicles', icon: '🏠', label: 'Vehicles' },
+    { id: 'bookings', icon: '📅', label: 'Bookings' },
     { id: 'payments', icon: '💳', label: 'Payments' },
     { id: 'reports', icon: '📷', label: 'Reports' },
   ];
@@ -564,6 +568,7 @@
     }
     if (state.clientTab === 'home') return renderClientHome();
     if (state.clientTab === 'customers') return renderClientCustomers();
+    if (state.clientTab === 'bookings') return renderClientBookings();
     if (state.clientTab === 'staff') return renderClientStaff();
     if (state.clientTab === 'payments') return renderClientPayments();
     if (state.clientTab === 'reports') return renderClientReports();
@@ -630,6 +635,54 @@
     }
   }
 
+  async function renderClientBookings() {
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading-spinner">Loading…</div>';
+    try {
+      const result = await api('/client/bookings');
+      state.clientBookings = result.bookings;
+    } catch (err) {
+      toast(err.message, 'error');
+      return;
+    }
+    const bookings = state.clientBookings || [];
+    const pendingCount = bookings.filter((b) => b.status === 'pending').length;
+
+    content.innerHTML =
+      '<div class="section-header"><h3>Wash Bookings<span class="count-badge">' + pendingCount + ' pending</span></h3></div>' +
+      (bookings.length === 0
+        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📅</div>No bookings yet.</div></div>'
+        : bookings.map((b) => bookingCardHtml(b, { showCustomer: true, canRespond: true })).join(''));
+
+    content.querySelectorAll('[data-accept-booking]').forEach((btn) => {
+      btn.addEventListener('click', () => respondBooking(btn.dataset.acceptBooking, 'accepted'));
+    });
+    content.querySelectorAll('[data-decline-booking]').forEach((btn) => {
+      btn.addEventListener('click', () => respondBooking(btn.dataset.declineBooking, 'declined'));
+    });
+    content.querySelectorAll('[data-complete-booking]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await api('/client/bookings/' + btn.dataset.completeBooking + '/complete', { method: 'POST' });
+          toast('Booking marked complete', 'success');
+          renderClientBookings();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  async function respondBooking(id, status) {
+    try {
+      await api('/client/bookings/' + id + '/respond', { method: 'POST', body: JSON.stringify({ status }) });
+      toast(status === 'accepted' ? 'Booking accepted' : 'Booking declined', 'success');
+      renderClientBookings();
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
   function renderClientProfile() {
     const content = document.getElementById('content');
     const d = state.data;
@@ -666,15 +719,20 @@
       '</div>' +
       '<div class="section-header"><h3>Service Status</h3></div>' +
       '<div class="card">' +
-        '<div class="info-note"><span class="in-icon">🚰</span>Pause new vehicle bookings temporarily — for example during a water shortage. Existing customers and vehicles are not affected.</div>' +
+        '<div class="info-note"><span class="in-icon">🚰</span>Pause new vehicle bookings and wash requests temporarily — for example during a water shortage. Existing customers and vehicles are not affected.</div>' +
         '<form id="pause-form">' +
           '<label class="toggle-row">' +
-            '<span class="toggle-label">New vehicle bookings' + (d.client.servicePaused ? ' <span class="chip chip-due">Paused</span>' : ' <span class="chip chip-paid">Open</span>') + '</span>' +
+            '<span class="toggle-label">New bookings' + (d.client.servicePaused ? ' <span class="chip chip-due">Paused</span>' : ' <span class="chip chip-paid">Open</span>') + '</span>' +
             '<span class="toggle-switch"><input type="checkbox" name="paused"' + (d.client.servicePaused ? ' checked' : '') + ' /><span class="toggle-track"></span></span>' +
           '</label>' +
           '<div class="field" id="pause-reason-field" style="margin-top:12px;' + (d.client.servicePaused ? '' : 'display:none;') + '">' +
             '<label>Reason shown to customers</label>' +
             '<input name="reason" placeholder="e.g. Temporary water shortage" maxlength="200" value="' + esc(d.client.pauseReason || '') + '" />' +
+          '</div>' +
+          '<div class="field" style="margin-top:12px;">' +
+            '<label>Daily wash booking limit</label>' +
+            '<input name="dailyBookingLimit" type="text" inputmode="numeric" pattern="[0-9]+" value="' + esc(d.client.dailyBookingLimit || 100) + '" />' +
+            '<p style="font-size:11.5px;color:var(--text-muted);margin-top:5px;">Once this many bookings are made for a day, customers see "No slots available — please try tomorrow."</p>' +
           '</div>' +
           '<button type="submit" class="btn btn-outline btn-block" style="margin-top:14px;">Save Status</button>' +
         '</form>' +
@@ -694,9 +752,9 @@
       try {
         await api('/client/service-status', {
           method: 'PUT',
-          body: JSON.stringify({ paused: pauseToggle.checked, reason: f.get('reason') }),
+          body: JSON.stringify({ paused: pauseToggle.checked, reason: f.get('reason'), dailyBookingLimit: f.get('dailyBookingLimit') }),
         });
-        toast(pauseToggle.checked ? 'New vehicle bookings paused' : 'New vehicle bookings resumed', 'success');
+        toast(pauseToggle.checked ? 'New bookings paused' : 'New bookings resumed', 'success');
         await loadClientData();
         renderClientTab();
       } catch (err) {
@@ -745,7 +803,7 @@
     content.innerHTML =
       (d.client.servicePaused
         ? '<div class="reminder-digest"><div class="rd-icon">🚰</div>' +
-          '<div><div class="rd-title">New vehicle bookings are paused</div>' +
+          '<div><div class="rd-title">New bookings are paused</div>' +
           '<div class="rd-sub">Customers see: "' + esc(d.client.pauseReason || 'Not accepting new bookings right now') + '". <a href="#" id="resume-bookings-link" style="color:inherit;text-decoration:underline;">Resume bookings</a></div></div></div>'
         : '') +
       '<div class="hero-banner">' +
@@ -800,7 +858,7 @@
         e.preventDefault();
         try {
           await api('/client/service-status', { method: 'PUT', body: JSON.stringify({ paused: false }) });
-          toast('New vehicle bookings resumed', 'success');
+          toast('New bookings resumed', 'success');
           await loadClientData();
           renderClientTab();
         } catch (err) {
@@ -1098,7 +1156,7 @@
   function pausedBookingNoticeHtml() {
     const reason = state.data && state.data.client && state.data.client.pauseReason;
     return '<div class="info-note" style="background:var(--red-light);color:var(--red);">' +
-      '<span class="in-icon">🚰</span>New vehicle bookings are paused' + (reason ? ': ' + esc(reason) : '.') +
+      '<span class="in-icon">🚰</span>New bookings are paused' + (reason ? ': ' + esc(reason) : '.') +
       ' <a href="#" data-go-to-profile style="color:inherit;text-decoration:underline;">Manage in Profile</a></div>';
   }
 
@@ -1534,6 +1592,7 @@
     }
     if (state.customerTab === 'reports') return renderCustomerReports();
     if (state.customerTab === 'payments') return renderCustomerPayments();
+    if (state.customerTab === 'bookings') return renderCustomerBookings();
     return renderCustomerDashboard();
   }
 
@@ -1546,7 +1605,7 @@
       (d.client.servicePaused
         ? '<div class="reminder-digest"><div class="rd-icon">🚰</div>' +
           '<div><div class="rd-title">New bookings temporarily paused</div>' +
-          '<div class="rd-sub">' + esc(d.client.pauseReason || 'We\'re not accepting new vehicle bookings right now.') + ' We apologize for the inconvenience.</div></div></div>'
+          '<div class="rd-sub">' + esc(d.client.pauseReason || 'We\'re not accepting new bookings right now.') + ' We apologize for the inconvenience.</div></div></div>'
         : '') +
       '<div class="status-banner ' + (d.anyDue ? 'due' : 'paid') + '">' +
         '<div class="sb-icon">' + (d.anyDue ? '⏰' : '✅') + '</div>' +
@@ -1731,6 +1790,101 @@
           toast('Report submitted', 'success');
           overlay.remove();
           renderCustomerReports();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  const BOOKING_STATUS_CHIP = {
+    pending: { cls: 'chip-amber', label: 'Pending' },
+    accepted: { cls: 'chip-paid', label: 'Accepted' },
+    declined: { cls: 'chip-due', label: 'Declined' },
+    completed: { cls: 'chip-navy', label: 'Completed' },
+  };
+
+  function bookingCardHtml(b, opts) {
+    opts = opts || {};
+    const chip = BOOKING_STATUS_CHIP[b.status] || BOOKING_STATUS_CHIP.pending;
+    return (
+      '<div class="card complaint-card">' +
+        '<div class="cc-top"><div' + (opts.showCustomer ? ' class="clickable-row" data-open-customer="' + b.customerId + '"' : '') + '>' +
+          (opts.showCustomer ? '<div class="cc-name">' + esc(b.customerName) + (b.customerFlat ? ' · ' + esc(b.customerFlat) : '') + '</div>' : '') +
+          '<div class="cc-meta">' + vehicleIconHtml(b.vehicleType, 'sm') + esc(b.vehicleType) + ' · ' + esc(b.vehicleNumber) + ' · Preferred: ' + formatDate(b.preferredDate) + '</div>' +
+        '</div><span class="chip ' + chip.cls + '">' + chip.label + '</span></div>' +
+        (b.notes ? '<p class="complaint-desc">' + esc(b.notes) + '</p>' : '') +
+        (b.clientNote ? '<div class="complaint-response"><strong>Note:</strong> ' + esc(b.clientNote) + '</div>' : '') +
+        (opts.canRespond && b.status === 'pending'
+          ? '<div style="display:flex; gap:8px; margin-top:10px;">' +
+              '<button class="btn btn-primary btn-sm" style="flex:1;" data-accept-booking="' + b.id + '">Accept</button>' +
+              '<button class="btn btn-outline btn-sm" style="flex:1;" data-decline-booking="' + b.id + '">Decline</button>' +
+            '</div>'
+          : '') +
+        (opts.canRespond && b.status === 'accepted'
+          ? '<button class="btn btn-outline btn-sm btn-block" style="margin-top:10px;" data-complete-booking="' + b.id + '">Mark Complete</button>'
+          : '') +
+      '</div>'
+    );
+  }
+
+  async function loadCustomerBookings() {
+    try {
+      const result = await api('/customer/bookings');
+      state.customerBookings = result.bookings;
+    } catch (err) {
+      toast(err.message, 'error');
+    }
+  }
+
+  async function renderCustomerBookings() {
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading-spinner">Loading…</div>';
+    await loadCustomerBookings();
+    if (!state.token) return;
+    const bookings = state.customerBookings || [];
+
+    content.innerHTML =
+      '<div class="section-header"><h3>Wash Bookings</h3>' +
+        '<button class="btn btn-primary btn-sm" id="book-wash-btn">📅 Book a Wash</button>' +
+      '</div>' +
+      '<p style="font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;">Request a wash for a preferred date — your provider will confirm it.</p>' +
+      (bookings.length === 0
+        ? '<div class="card"><div class="empty-state"><div class="empty-icon">📅</div>No bookings yet.</div></div>'
+        : bookings.map((b) => bookingCardHtml(b, { showCustomer: false, canRespond: false })).join(''));
+
+    document.getElementById('book-wash-btn').addEventListener('click', openBookWashModal);
+  }
+
+  function openBookWashModal() {
+    const d = state.data;
+    const vehicles = (d && d.vehicles) || [];
+    const today = new Date().toISOString().slice(0, 10);
+    const html =
+      (d && d.client && d.client.servicePaused
+        ? '<div class="info-note" style="background:var(--red-light);color:var(--red);"><span class="in-icon">🚰</span>New wash bookings are paused' + (d.client.pauseReason ? ': ' + esc(d.client.pauseReason) : '.') + '</div>'
+        : '<form id="book-wash-form">' +
+            '<div class="field"><label>Vehicle</label><select name="vehicleId" required>' +
+              vehicles.map((v) => '<option value="' + v.id + '">' + esc(v.type) + ' · ' + esc(v.number) + '</option>').join('') +
+            '</select></div>' +
+            '<div class="field"><label>Preferred Date</label><input type="date" name="preferredDate" required min="' + today + '" value="' + today + '" /></div>' +
+            '<div class="field"><label>Notes (optional)</label><textarea name="notes" rows="2" placeholder="e.g. Please come before 10am"></textarea></div>' +
+            '<button type="submit" class="btn btn-primary btn-block">Request Booking</button>' +
+          '</form>');
+    const overlay = openModal('Book a Wash', html, (ov) => {
+      const form = ov.querySelector('#book-wash-form');
+      if (!form) return;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/customer/bookings', {
+            method: 'POST',
+            body: JSON.stringify({ vehicleId: f.get('vehicleId'), preferredDate: f.get('preferredDate'), notes: f.get('notes') }),
+          });
+          toast('Booking requested', 'success');
+          overlay.remove();
+          renderCustomerBookings();
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -2022,7 +2176,7 @@
       if (digits.length > 10 && digits.startsWith('91')) digits = digits.slice(2);
       e.target.value = digits.slice(0, 10);
     }
-    if (e.target && e.target.matches('input[name="Bike"], input[name="Car"], input[name="vamount"], input[name="planAmount"], input#pay-amount')) {
+    if (e.target && e.target.matches('input[name="Bike"], input[name="Car"], input[name="vamount"], input[name="planAmount"], input#pay-amount, input[name="dailyBookingLimit"]')) {
       e.target.value = e.target.value.replace(/\D/g, '');
     }
   });

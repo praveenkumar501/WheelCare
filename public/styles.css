@@ -761,6 +761,7 @@ a { color: inherit; text-decoration: none; }
 .chip-paid { background: var(--green-light); color: var(--green); }
 .chip-due { background: var(--red-light); color: var(--red); }
 .chip-amber { background: var(--amber-light); color: #B87200; }
+.chip-navy { background: rgba(11, 37, 69, 0.1); color: var(--navy); }
 
 /* ---------- Forms / modal ---------- */
 .modal-overlay {

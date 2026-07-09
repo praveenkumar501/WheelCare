@@ -140,6 +140,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
         businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area,
         rates: client.rates || { Bike: 300, Car: 700 },
         servicePaused: !!client.servicePaused, pauseReason: client.pauseReason || '',
+        dailyBookingLimit: client.dailyBookingLimit || 100,
       },
       month,
       totalCollected,
@@ -620,9 +621,15 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
   app.put('/api/client/service-status', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { paused, reason } = req.body || {};
+    const { paused, reason, dailyBookingLimit } = req.body || {};
     if (typeof paused !== 'boolean') {
       return res.status(400).json({ error: 'paused must be true or false' });
+    }
+    if (dailyBookingLimit !== undefined) {
+      const n = Number(dailyBookingLimit);
+      if (!Number.isInteger(n) || n < 1 || n > 1000) {
+        return res.status(400).json({ error: 'dailyBookingLimit must be a whole number between 1 and 1000' });
+      }
     }
 
     const db = readDB();
@@ -631,9 +638,10 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
     client.servicePaused = paused;
     client.pauseReason = paused ? String(reason || '').trim().slice(0, 200) : '';
+    if (dailyBookingLimit !== undefined) client.dailyBookingLimit = Number(dailyBookingLimit);
 
     writeDB(db);
-    res.json({ servicePaused: client.servicePaused, pauseReason: client.pauseReason });
+    res.json({ servicePaused: client.servicePaused, pauseReason: client.pauseReason, dailyBookingLimit: client.dailyBookingLimit });
   });
 
   // ---------- Service quality reports ----------
@@ -683,5 +691,64 @@ module.exports = function registerClientRoutes(app, authenticate) {
     complaint.respondedAt = new Date().toISOString();
     writeDB(db);
     res.json({ complaint });
+  });
+
+  // ---------- Wash bookings ----------
+  app.get('/api/client/bookings', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const db = readDB();
+    const customerById = new Map(db.customers.map((c) => [c.id, c]));
+    const vehicleById = new Map(db.vehicles.map((v) => [v.id, v]));
+    const bookings = (db.bookings || [])
+      .filter((b) => b.clientId === clientId)
+      .map((b) => {
+        const customer = customerById.get(b.customerId);
+        const vehicle = vehicleById.get(b.vehicleId);
+        return {
+          ...b,
+          customerName: customer ? customer.name : 'Unknown',
+          customerFlat: customer ? customer.flat : '',
+          customerPhone: customer ? customer.phone : '',
+          vehicleNumber: vehicle ? vehicle.number : '',
+          vehicleType: vehicle ? vehicle.type : '',
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ bookings });
+  });
+
+  app.post('/api/client/bookings/:id/respond', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const { status, note } = req.body || {};
+    if (!['accepted', 'declined'].includes(status)) {
+      return res.status(400).json({ error: 'status must be accepted or declined' });
+    }
+
+    const db = readDB();
+    const booking = (db.bookings || []).find((b) => b.id === req.params.id && b.clientId === clientId);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ error: 'This booking has already been responded to' });
+    }
+
+    booking.status = status;
+    booking.clientNote = (note || '').trim().slice(0, 300);
+    booking.respondedAt = new Date().toISOString();
+    writeDB(db);
+    res.json({ booking });
+  });
+
+  app.post('/api/client/bookings/:id/complete', authenticate('client'), (req, res) => {
+    const clientId = req.session.id;
+    const db = readDB();
+    const booking = (db.bookings || []).find((b) => b.id === req.params.id && b.clientId === clientId);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.status !== 'accepted') {
+      return res.status(400).json({ error: 'Only accepted bookings can be marked complete' });
+    }
+
+    booking.status = 'completed';
+    writeDB(db);
+    res.json({ booking });
   });
 };

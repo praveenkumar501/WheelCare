@@ -36,6 +36,7 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
         businessName: client.businessName, ownerName: client.ownerName, phone: client.phone, area: client.area,
         servicePaused: !!client.servicePaused, pauseReason: client.pauseReason || '',
       },
+      dailyBookingLimit: client.dailyBookingLimit || 100,
       month,
       vehicles,
       anyDue,
@@ -89,5 +90,62 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
     db.complaints.push(complaint);
     writeDB(db);
     res.status(201).json({ complaint });
+  });
+
+  // ---------- Wash bookings ----------
+  app.get('/api/customer/bookings', authenticate('customer'), (req, res) => {
+    const db = readDB();
+    const bookings = (db.bookings || [])
+      .filter((b) => b.customerId === req.session.id)
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    res.json({ bookings });
+  });
+
+  app.post('/api/customer/bookings', authenticate('customer'), (req, res) => {
+    const { vehicleId, preferredDate, notes } = req.body || {};
+    if (!vehicleId || !preferredDate) {
+      return res.status(400).json({ error: 'vehicleId and preferredDate are required' });
+    }
+    if (Number.isNaN(new Date(preferredDate).getTime())) {
+      return res.status(400).json({ error: 'preferredDate must be a valid date' });
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (new Date(preferredDate) < today) {
+      return res.status(400).json({ error: 'preferredDate cannot be in the past' });
+    }
+
+    const db = readDB();
+    const customer = db.customers.find((c) => c.id === req.session.id);
+    const client = db.clients.find((c) => c.id === customer.clientId);
+    if (client && client.servicePaused) {
+      return res.status(403).json({ error: 'New wash bookings are paused' + (client.pauseReason ? `: ${client.pauseReason}` : '.') });
+    }
+    const vehicle = db.vehicles.find((v) => v.id === vehicleId && v.customerId === customer.id);
+    if (!vehicle) return res.status(404).json({ error: 'Vehicle not found' });
+
+    const dailyLimit = (client && client.dailyBookingLimit) || 100;
+    const bookedCount = (db.bookings || []).filter(
+      (b) => b.clientId === customer.clientId && b.preferredDate === preferredDate && b.status !== 'declined'
+    ).length;
+    if (bookedCount >= dailyLimit) {
+      return res.status(409).json({ error: 'No slots available for ' + preferredDate + '. Please try tomorrow.' });
+    }
+
+    if (!db.bookings) db.bookings = [];
+    const booking = {
+      id: nextId(db, 'bookings', 'bk'),
+      clientId: customer.clientId,
+      customerId: customer.id,
+      vehicleId,
+      preferredDate,
+      notes: (notes || '').trim().slice(0, 300),
+      status: 'pending',
+      clientNote: '',
+      createdAt: new Date().toISOString(),
+      respondedAt: null,
+    };
+    db.bookings.push(booking);
+    writeDB(db);
+    res.status(201).json({ booking });
   });
 };
