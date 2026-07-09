@@ -183,6 +183,16 @@ function isValidUsername(username) {
   return USERNAME_REGEX.test(String(username || ''));
 }
 
+// Usernames are shared across a single login form (no role picker), so they
+// must be unique across superadmin, clients, customers and pending requests —
+// not just within one role — or login couldn't tell two accounts apart.
+function isUsernameTaken(db, username) {
+  return db.superadmin.username === username
+    || db.clients.some((c) => c.username === username)
+    || db.customers.some((c) => c.username === username)
+    || db.clientRequests.some((r) => r.status === 'pending' && r.username === username);
+}
+
 function generateUsername(existingUsernames, base) {
   const slug = String(base || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14) || 'user';
   let candidate = slug;
@@ -227,6 +237,7 @@ module.exports = {
   generateUsername,
   USERNAME_REGEX,
   isValidUsername,
+  isUsernameTaken,
   sanitizeClient,
   sanitizeCustomer,
   VEHICLE_TYPES,

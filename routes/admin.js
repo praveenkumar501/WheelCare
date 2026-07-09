@@ -2,7 +2,7 @@ const { readDB, writeDB, nextId } = require('../db');
 const {
   sanitizeClient, isValidPhone, generateUsername, buildPasswordSetupToken,
   buildOrigin, buildPasswordSetupPromptMessage, buildWaLink, buildSmsLink,
-  hashPassword, isValidPassword, MIN_PASSWORD_LENGTH, isValidUsername,
+  hashPassword, isValidPassword, MIN_PASSWORD_LENGTH, isValidUsername, isUsernameTaken,
 } = require('../utils');
 
 module.exports = function registerAdminRoutes(app, authenticate) {
@@ -73,7 +73,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     if (!isValidUsername(cleanUsername)) {
       return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
     }
-    if (db.clients.some((c) => c.username === cleanUsername)) {
+    if (isUsernameTaken(db, cleanUsername)) {
       return res.status(409).json({ error: 'That username is already taken' });
     }
     const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();
@@ -195,7 +195,11 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     const request = db.clientRequests.find((r) => r.id === req.params.id && r.status === 'pending');
     if (!request) return res.status(404).json({ error: 'Request not found' });
 
-    const existingUsernames = new Set(db.clients.map((c) => c.username));
+    const existingUsernames = new Set([
+      db.superadmin.username,
+      ...db.clients.map((c) => c.username),
+      ...db.customers.map((c) => c.username),
+    ]);
     const username = (request.username && !existingUsernames.has(request.username))
       ? request.username
       : generateUsername(existingUsernames, request.ownerName || request.businessName);

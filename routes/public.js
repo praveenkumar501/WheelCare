@@ -1,28 +1,16 @@
 const { readDB, writeDB } = require('../db');
 const { nextId } = require('../db');
-const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword, isPasswordSetupTokenExpired, isValidUsername } = require('../utils');
-
-function isUsernameTaken(db, role, username) {
-  if (role === 'client') {
-    return db.clients.some((c) => c.username === username)
-      || db.clientRequests.some((r) => r.status === 'pending' && r.username === username);
-  }
-  if (role === 'customer') {
-    return db.customers.some((c) => c.username === username);
-  }
-  return true; // unknown role — treat as unavailable rather than silently allowing it
-}
+const { isValidPhone, isValidPassword, MIN_PASSWORD_LENGTH, hashPassword, isPasswordSetupTokenExpired, isValidUsername, isUsernameTaken } = require('../utils');
 
 module.exports = function registerPublicRoutes(app) {
-  // ---------- Shared username availability check (client or customer usernames) ----------
+  // ---------- Shared username availability check (one login, one username pool) ----------
   app.get('/api/username-availability', (req, res) => {
-    const role = req.query.role === 'customer' ? 'customer' : 'client';
     const username = String(req.query.username || '').toLowerCase();
     if (!isValidUsername(username)) {
       return res.json({ available: false, reason: '3-20 lowercase letters/numbers, no spaces' });
     }
     const db = readDB();
-    res.json({ available: !isUsernameTaken(db, role, username) });
+    res.json({ available: !isUsernameTaken(db, username) });
   });
 
   // ---------- Business registration requests ----------
@@ -41,7 +29,7 @@ module.exports = function registerPublicRoutes(app) {
     if (!isValidUsername(cleanUsername)) {
       return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
     }
-    if (isUsernameTaken(db, 'client', cleanUsername)) {
+    if (isUsernameTaken(db, cleanUsername)) {
       return res.status(409).json({ error: 'That username is already taken' });
     }
 

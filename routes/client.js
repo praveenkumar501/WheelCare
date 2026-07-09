@@ -20,6 +20,7 @@ const {
   isValidVehicleNumber,
   normalizeVehicleNumber,
   isValidUsername,
+  isUsernameTaken,
   PAYMENT_METHODS,
   sanitizeClient,
 } = require('../utils');
@@ -189,7 +190,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
       return res.status(403).json({ error: 'New vehicle bookings are paused' + (client.pauseReason ? `: ${client.pauseReason}` : '.') + ' You can still add this customer without a vehicle.' });
     }
 
-    if (db.customers.some((c) => c.username === cleanUsername)) {
+    if (isUsernameTaken(db, cleanUsername)) {
       return res.status(409).json({ error: 'That username is already taken' });
     }
     const { token: setupToken, expiresAt: setupTokenExpiresAt } = buildPasswordSetupToken();

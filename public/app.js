@@ -32,7 +32,6 @@
     token: localStorage.getItem('wc_token') || null,
     role: localStorage.getItem('wc_role') || null,
     user: JSON.parse(localStorage.getItem('wc_user') || 'null'),
-    loginRole: 'client',
     view: 'landing',
     clientTab: 'home',
     adminTab: 'overview',
@@ -333,17 +332,15 @@
         '</footer>' +
       '</div>';
 
-    const goToLogin = (role) => { state.loginRole = role; state.view = 'login'; render(); };
-    document.getElementById('nav-login-btn').addEventListener('click', () => goToLogin('client'));
-    document.getElementById('hero-login-btn').addEventListener('click', () => goToLogin('client'));
-    document.getElementById('get-started-btn').addEventListener('click', () => goToLogin('client'));
-    document.getElementById('cta-band-btn').addEventListener('click', () => goToLogin('client'));
-    document.getElementById('admin-login-btn').addEventListener('click', () => goToLogin('superadmin'));
+    const goToLogin = () => { state.view = 'login'; render(); };
+    document.getElementById('nav-login-btn').addEventListener('click', goToLogin);
+    document.getElementById('hero-login-btn').addEventListener('click', goToLogin);
+    document.getElementById('get-started-btn').addEventListener('click', goToLogin);
+    document.getElementById('cta-band-btn').addEventListener('click', goToLogin);
+    document.getElementById('admin-login-btn').addEventListener('click', goToLogin);
   }
 
   // ================= LOGIN =================
-  const ROLE_LABELS = { client: 'Business', customer: 'Customer', superadmin: 'Super Admin' };
-
   function renderLogin(errorMsg) {
     $app.innerHTML =
       '<div class="auth-screen premium-bg">' +
@@ -353,20 +350,13 @@
           '<h1 class="auth-brand">Wheel<span class="grad-text">Care</span></h1>' +
           '<p class="auth-tagline">Monthly bike &amp; car wash subscriptions for your community.</p>' +
           '<div class="glass-card auth-card-dark">' +
-            '<div class="role-tabs" id="role-tabs">' +
-              Object.keys(ROLE_LABELS).map((r) =>
-                '<button class="role-tab' + (state.loginRole === r ? ' active' : '') + '" data-role="' + r + '">' + ROLE_LABELS[r] + '</button>'
-              ).join('') +
-            '</div>' +
             (errorMsg ? '<div class="auth-error">' + esc(errorMsg) + '</div>' : '') +
             '<form id="login-form">' +
               '<div class="field"><label>Username</label><input id="login-username" required autocomplete="username" /></div>' +
               pwdFieldHtml('Password', 'password', { id: 'login-password', required: true, autocomplete: 'current-password' }) +
               '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
             '</form>' +
-            (state.loginRole === 'client'
-              ? '<div class="auth-links"><button class="link-btn" id="register-business-btn">Register your business</button></div>'
-              : '') +
+            '<div class="auth-links"><button class="link-btn" id="register-business-btn">Register your business</button></div>' +
           '</div>' +
           '<p class="auth-footer-credit">Developed by Praveen Kumar Athyala</p>' +
         '</div>' +
@@ -377,19 +367,12 @@
       render();
     });
 
-    document.getElementById('role-tabs').addEventListener('click', (e) => {
-      const btn = e.target.closest('.role-tab');
-      if (!btn) return;
-      state.loginRole = btn.dataset.role;
-      renderLogin();
-    });
-
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('login-username').value.trim();
       const password = document.getElementById('login-password').value;
       try {
-        const result = await api('/login', { method: 'POST', body: JSON.stringify({ role: state.loginRole, username, password }) });
+        const result = await api('/login', { method: 'POST', body: JSON.stringify({ username, password }) });
         saveSession(result.token, result.role, result.user);
         toast('Welcome back, ' + (result.user.name || result.user.businessName || result.user.username) + '!', 'success');
         render();
@@ -398,8 +381,7 @@
       }
     });
 
-    const registerBtn = document.getElementById('register-business-btn');
-    if (registerBtn) registerBtn.addEventListener('click', openRegisterBusinessModal);
+    document.getElementById('register-business-btn').addEventListener('click', openRegisterBusinessModal);
   }
 
   function renderSetPassword() {
@@ -442,8 +424,7 @@
         const result = await api('/set-password', { method: 'POST', body: JSON.stringify({ role, token, password }) });
         toast('Password set! Log in as ' + result.username, 'success');
         state.view = 'login';
-        state.loginRole = role;
-        location.hash = '#/login?role=' + role;
+        location.hash = '#/login';
         render();
       } catch (err) {
         toast(err.message, 'error');
@@ -451,7 +432,7 @@
     });
   }
 
-  function wireUsernameAvailability(usernameInput, availabilityNote, role) {
+  function wireUsernameAvailability(usernameInput, availabilityNote) {
     let usernameCheckTimer = null;
     usernameInput.addEventListener('input', () => {
       clearTimeout(usernameCheckTimer);
@@ -466,7 +447,7 @@
       availabilityNote.style.color = 'var(--text-muted)';
       usernameCheckTimer = setTimeout(async () => {
         try {
-          const data = await api('/username-availability?role=' + role + '&username=' + encodeURIComponent(val));
+          const data = await api('/username-availability?username=' + encodeURIComponent(val));
           if (usernameInput.value.trim().toLowerCase() !== val) return;
           availabilityNote.textContent = data.available ? '✓ Available' : '✕ Already taken';
           availabilityNote.style.color = data.available ? 'var(--green)' : 'var(--red)';
@@ -495,7 +476,7 @@
     const overlay = openModal('Register Your Business', html, (ov) => {
       const usernameInput = ov.querySelector('#reg-username');
       const availabilityNote = ov.querySelector('#username-availability');
-      wireUsernameAvailability(usernameInput, availabilityNote, 'client');
+      wireUsernameAvailability(usernameInput, availabilityNote);
       ov.querySelector('#register-business-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -1292,7 +1273,7 @@
       nameInput.addEventListener('input', () => {
         avatar.textContent = nameInput.value.trim() ? initials(nameInput.value) : '👤';
       });
-      wireUsernameAvailability(ov.querySelector('#add-cust-username'), ov.querySelector('#add-cust-username-availability'), 'customer');
+      wireUsernameAvailability(ov.querySelector('#add-cust-username'), ov.querySelector('#add-cust-username-availability'));
       ov.querySelector('#add-customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -2216,7 +2197,7 @@
           '<button type="submit" class="btn btn-primary btn-block">Onboard Business</button>' +
         '</form>';
       const overlay = openModal('Add Client Business', html, (ov) => {
-        wireUsernameAvailability(ov.querySelector('#add-client-username'), ov.querySelector('#add-client-username-availability'), 'client');
+        wireUsernameAvailability(ov.querySelector('#add-client-username'), ov.querySelector('#add-client-username-availability'));
         ov.querySelector('#add-client-form').addEventListener('submit', async (e) => {
           e.preventDefault();
           const f = new FormData(e.target);
@@ -2348,8 +2329,6 @@
   const initialHash = parseHash();
   if (initialHash.path === 'login') {
     state.view = 'login';
-    const role = initialHash.params.get('role');
-    if (role && ROLE_LABELS[role]) state.loginRole = role;
   } else if (initialHash.path === 'set-password') {
     state.view = 'set-password';
     state.setPasswordRole = initialHash.params.get('role');

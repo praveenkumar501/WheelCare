@@ -66,45 +66,41 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/login', (req, res) => {
-  const { role, username, password } = req.body || {};
-  if (!role || !username || !password) {
-    return res.status(400).json({ error: 'role, username and password are required' });
+  const { username, password } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password are required' });
   }
 
   const db = readDB();
 
-  if (role === 'superadmin') {
-    if (db.superadmin.username === username && comparePassword(password, db.superadmin.password)) {
-      const token = makeToken();
-      sessions.set(token, { role: 'superadmin', id: 'superadmin' });
-      saveSessions();
-      return res.json({ token, role: 'superadmin', user: { name: 'Super Admin', username } });
+  if (db.superadmin.username === username && comparePassword(password, db.superadmin.password)) {
+    const token = makeToken();
+    sessions.set(token, { role: 'superadmin', id: 'superadmin' });
+    saveSessions();
+    return res.json({ token, role: 'superadmin', user: { name: 'Super Admin', username } });
+  }
+
+  const client = db.clients.find((c) => c.username === username);
+  if (client && comparePassword(password, client.password)) {
+    if (client.active === false) {
+      return res.status(403).json({ error: 'This business account has been deactivated. Contact the platform admin.' });
     }
-  } else if (role === 'client') {
-    const client = db.clients.find((c) => c.username === username);
-    if (client && comparePassword(password, client.password)) {
-      if (client.active === false) {
-        return res.status(403).json({ error: 'This business account has been deactivated. Contact the platform admin.' });
-      }
-      const token = makeToken();
-      sessions.set(token, { role: 'client', id: client.id });
-      saveSessions();
-      return res.json({ token, role: 'client', user: sanitizeClient(client) });
+    const token = makeToken();
+    sessions.set(token, { role: 'client', id: client.id });
+    saveSessions();
+    return res.json({ token, role: 'client', user: sanitizeClient(client) });
+  }
+
+  const customer = db.customers.find((c) => c.username === username);
+  if (customer && comparePassword(password, customer.password)) {
+    const parentClient = db.clients.find((c) => c.id === customer.clientId);
+    if (parentClient && parentClient.active === false) {
+      return res.status(403).json({ error: 'This business account is currently inactive. Please contact them directly.' });
     }
-  } else if (role === 'customer') {
-    const customer = db.customers.find((c) => c.username === username);
-    if (customer && comparePassword(password, customer.password)) {
-      const parentClient = db.clients.find((c) => c.id === customer.clientId);
-      if (parentClient && parentClient.active === false) {
-        return res.status(403).json({ error: 'This business account is currently inactive. Please contact them directly.' });
-      }
-      const token = makeToken();
-      sessions.set(token, { role: 'customer', id: customer.id, clientId: customer.clientId });
-      saveSessions();
-      return res.json({ token, role: 'customer', user: sanitizeCustomer(customer) });
-    }
-  } else {
-    return res.status(400).json({ error: 'Invalid role' });
+    const token = makeToken();
+    sessions.set(token, { role: 'customer', id: customer.id, clientId: customer.clientId });
+    saveSessions();
+    return res.json({ token, role: 'customer', user: sanitizeCustomer(customer) });
   }
 
   return res.status(401).json({ error: 'Invalid username or password' });
