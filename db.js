@@ -26,25 +26,47 @@ function loadSeedFromDisk() {
   return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
 }
 
-async function connectMysql() {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function connectMysqlOnce() {
   const connectionConfig = MYSQL_HOST
-    ? { host: MYSQL_HOST, port: Number(MYSQL_PORT) || 3306, user: MYSQL_USER, password: MYSQL_PASSWORD, database: MYSQL_DATABASE }
+    ? {
+        host: MYSQL_HOST, port: Number(MYSQL_PORT) || 3306, user: MYSQL_USER, password: MYSQL_PASSWORD, database: MYSQL_DATABASE,
+        connectionLimit: 3, connectTimeout: 15000,
+      }
     : MYSQL_URL;
-  mysqlPool = mysql.createPool(connectionConfig);
-  await mysqlPool.query(
+  const pool = mysql.createPool(connectionConfig);
+  await pool.query(
     'CREATE TABLE IF NOT EXISTS wheelcare_state (id VARCHAR(20) PRIMARY KEY, data LONGTEXT)'
   );
-  const [rows] = await mysqlPool.query('SELECT data FROM wheelcare_state WHERE id = ?', [DOC_ID]);
+  const [rows] = await pool.query('SELECT data FROM wheelcare_state WHERE id = ?', [DOC_ID]);
   if (rows.length) {
     cachedDB = JSON.parse(rows[0].data);
     console.log('Connected to MySQL — loaded existing data');
   } else {
     const seed = loadSeedFromDisk();
-    await mysqlPool.query('INSERT INTO wheelcare_state (id, data) VALUES (?, ?)', [DOC_ID, JSON.stringify(seed)]);
+    await pool.query('INSERT INTO wheelcare_state (id, data) VALUES (?, ?)', [DOC_ID, JSON.stringify(seed)]);
     cachedDB = seed;
     console.log('Connected to MySQL — seeded initial data');
   }
+  mysqlPool = pool;
   backend = 'mysql';
+}
+
+async function connectMysql() {
+  const MAX_ATTEMPTS = 4;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      await connectMysqlOnce();
+      return;
+    } catch (err) {
+      console.error(`MySQL connect attempt ${attempt}/${MAX_ATTEMPTS} failed: ${err.message}`);
+      if (attempt === MAX_ATTEMPTS) throw err;
+      await sleep(attempt * 2000);
+    }
+  }
 }
 
 async function connectMongo() {
