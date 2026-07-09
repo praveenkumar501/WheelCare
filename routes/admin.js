@@ -2,6 +2,7 @@ const { readDB, writeDB, nextId } = require('../db');
 const {
   sanitizeClient, isValidPhone, generateUsername, buildPasswordSetupToken,
   buildOrigin, buildPasswordSetupPromptMessage, buildWaLink, buildSmsLink,
+  hashPassword, isValidPassword, MIN_PASSWORD_LENGTH,
 } = require('../utils');
 
 module.exports = function registerAdminRoutes(app, authenticate) {
@@ -20,6 +21,37 @@ module.exports = function registerAdminRoutes(app, authenticate) {
       revenue,
     };
   }
+
+  // ---------- Factory reset (destructive; super admin only) ----------
+  app.post('/api/admin/factory-reset', authenticate('superadmin'), (req, res) => {
+    const { confirm, newUsername, newPassword } = req.body || {};
+    if (confirm !== 'RESET') {
+      return res.status(400).json({ error: 'confirm must be the exact string "RESET"' });
+    }
+    if (!newUsername || !newPassword) {
+      return res.status(400).json({ error: 'newUsername and newPassword are required' });
+    }
+    if (!isValidPassword(newPassword)) {
+      return res.status(400).json({ error: `newPassword must be at least ${MIN_PASSWORD_LENGTH} characters` });
+    }
+
+    const db = readDB();
+    db.clients = [];
+    db.customers = [];
+    db.vehicles = [];
+    db.payments = [];
+    db.complaints = [];
+    db.bookings = [];
+    db.clientRequests = [];
+    db.staff = [];
+    db.superadmin = {
+      username: newUsername,
+      phone: db.superadmin.phone,
+      password: hashPassword(newPassword),
+    };
+    writeDB(db);
+    res.json({ ok: true, username: newUsername });
+  });
 
   app.get('/api/admin/clients', authenticate('superadmin'), (req, res) => {
     const db = readDB();
