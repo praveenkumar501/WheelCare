@@ -432,7 +432,7 @@
     });
   }
 
-  function wireUsernameAvailability(usernameInput, availabilityNote) {
+  function wireUsernameAvailability(usernameInput, availabilityNote, currentUsername) {
     let usernameCheckTimer = null;
     usernameInput.addEventListener('input', () => {
       clearTimeout(usernameCheckTimer);
@@ -441,6 +441,11 @@
       if (!/^[a-z0-9]{3,20}$/.test(val)) {
         availabilityNote.textContent = '3-20 lowercase letters/numbers, no spaces';
         availabilityNote.style.color = 'var(--red)';
+        return;
+      }
+      if (currentUsername && val === currentUsername.toLowerCase()) {
+        availabilityNote.textContent = '✓ Your current username';
+        availabilityNote.style.color = 'var(--green)';
         return;
       }
       availabilityNote.textContent = 'Checking…';
@@ -1349,7 +1354,9 @@
             '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(customer.phone) + '" /></div></div>' +
             '<div class="field"><label>Flat / Unit</label><input name="flat" value="' + esc(customer.flat || '') + '" /></div>' +
           '</div>' +
-          '<div class="field"><label>Login Username</label><input value="' + esc(customer.username) + '" disabled /></div>' +
+          '<div class="field"><label>Login Username</label><input name="username" id="edit-cust-username" required value="' + esc(customer.username) + '" pattern="[a-z0-9]{3,20}" title="3-20 lowercase letters/numbers, no spaces" />' +
+            '<div id="edit-cust-username-availability" style="font-size:11.5px;margin-top:5px;min-height:14px;"></div>' +
+          '</div>' +
           '<button type="button" class="btn btn-outline btn-sm" id="resend-setup-btn" style="margin:-4px 0 14px;">Resend password setup link</button>' +
         '</div>' +
         (isBookingPaused()
@@ -1371,6 +1378,7 @@
     const overlay = openModal('Edit Customer', html, (ov) => {
       bindGoToProfileLinks(ov);
       disableUntilDirty(ov.querySelector('#edit-customer-form'));
+      wireUsernameAvailability(ov.querySelector('#edit-cust-username'), ov.querySelector('#edit-cust-username-availability'), customer.username);
       ov.querySelector('#resend-setup-btn').addEventListener('click', async () => {
         try {
           const result = await api('/client/customers/' + customer.id + '/resend-setup', { method: 'POST' });
@@ -1382,7 +1390,7 @@
       ov.querySelector('#edit-customer-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
-        const payload = { name: f.get('name'), phone: f.get('phone'), flat: f.get('flat') };
+        const payload = { name: f.get('name'), phone: f.get('phone'), flat: f.get('flat'), username: f.get('username') };
         try {
           await api('/client/customers/' + customer.id, { method: 'PUT', body: JSON.stringify(payload) });
           if (f.get('vtype') && f.get('vnumber') && f.get('vamount')) {
@@ -2229,13 +2237,16 @@
           '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" value="' + esc(client.phone) + '" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" value="' + esc(client.area || '') + '" /></div>' +
         '</div>' +
-        '<div class="field"><label>Login Username</label><input value="' + esc(client.username) + '" disabled /></div>' +
-        '<button type="button" class="btn btn-outline btn-sm" id="resend-client-setup-btn" style="margin:-8px 0 16px;">Resend password setup link</button>' +
+        '<div class="field"><label>Login Username</label><input name="username" id="edit-client-username" required value="' + esc(client.username) + '" pattern="[a-z0-9]{3,20}" title="3-20 lowercase letters/numbers, no spaces" />' +
+          '<div id="edit-client-username-availability" style="font-size:11.5px;margin-top:5px;min-height:14px;"></div>' +
+        '</div>' +
+        '<button type="button" class="btn btn-outline btn-sm" id="resend-client-setup-btn" style="margin:-4px 0 16px;">Resend password setup link</button>' +
         '<button type="submit" class="btn btn-primary btn-block">Save Changes</button>' +
       '</form>';
 
     const overlay = openModal('Edit Client Business', html, (ov) => {
       disableUntilDirty(ov.querySelector('#edit-client-form'));
+      wireUsernameAvailability(ov.querySelector('#edit-client-username'), ov.querySelector('#edit-client-username-availability'), client.username);
       ov.querySelector('#resend-client-setup-btn').addEventListener('click', async () => {
         try {
           const result = await api('/admin/clients/' + client.id + '/resend-setup', { method: 'POST' });
@@ -2249,7 +2260,7 @@
         const f = new FormData(e.target);
         const payload = {
           businessName: f.get('businessName'), ownerName: f.get('ownerName'),
-          phone: f.get('phone'), area: f.get('area'),
+          phone: f.get('phone'), area: f.get('area'), username: f.get('username'),
         };
         try {
           await api('/admin/clients/' + client.id, { method: 'PUT', body: JSON.stringify(payload) });

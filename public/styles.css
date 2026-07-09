@@ -403,16 +403,33 @@ a { color: inherit; text-decoration: none; }
   resize: vertical;
 }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--orange); background: #fff; }
+.field input:-webkit-autofill,
+.field input:-webkit-autofill:hover,
+.field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+.auth-card-dark .field input:-webkit-autofill,
+.auth-card-dark .field input:-webkit-autofill:hover,
+.auth-card-dark .field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #fff;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255,255,255,0.08) inset;
+  border-color: rgba(255,255,255,0.14);
+}
 
 .pwd-wrap { position: relative; }
 .pwd-wrap input { padding-right: 44px; }
 .pwd-toggle-btn {
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; color: var(--text-muted);
-  padding: 8px; display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 999px;
+  background: rgba(17,24,39,0.07); border: none; color: rgba(17,24,39,0.65);
+  padding: 0; display: flex; align-items: center; justify-content: center;
 }
 .pwd-toggle-btn svg { width: 18px; height: 18px; }
-.auth-card-dark .pwd-toggle-btn { color: rgba(255,255,255,0.45); }
+/* Own opaque badge so the icon stays visible even when the browser paints
+   its own autofill background (white/yellow) over the input underneath. */
+.auth-card-dark .pwd-toggle-btn { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.9); }
 
 .phone-input-group {
   display: flex; align-items: stretch;

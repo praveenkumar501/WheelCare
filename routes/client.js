@@ -246,7 +246,7 @@ module.exports = function registerClientRoutes(app, authenticate) {
 
   app.put('/api/client/customers/:id', authenticate('client'), (req, res) => {
     const clientId = req.session.id;
-    const { name, phone, flat } = req.body || {};
+    const { name, phone, flat, username } = req.body || {};
     if (!name || !phone) {
       return res.status(400).json({ error: 'name and phone are required' });
     }
@@ -257,6 +257,17 @@ module.exports = function registerClientRoutes(app, authenticate) {
     const db = readDB();
     const customer = requireOwnCustomer(db, clientId, req.params.id);
     if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+    if (username !== undefined) {
+      const cleanUsername = String(username).trim().toLowerCase();
+      if (!isValidUsername(cleanUsername)) {
+        return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
+      }
+      if (cleanUsername !== customer.username && isUsernameTaken(db, cleanUsername)) {
+        return res.status(409).json({ error: 'That username is already taken' });
+      }
+      customer.username = cleanUsername;
+    }
 
     customer.name = name;
     customer.phone = phone;

@@ -123,7 +123,7 @@ module.exports = function registerAdminRoutes(app, authenticate) {
   });
 
   app.put('/api/admin/clients/:id', authenticate('superadmin'), (req, res) => {
-    const { businessName, ownerName, phone, area } = req.body || {};
+    const { businessName, ownerName, phone, area, username } = req.body || {};
     if (!businessName || !ownerName || !phone) {
       return res.status(400).json({ error: 'businessName, ownerName and phone are required' });
     }
@@ -134,6 +134,17 @@ module.exports = function registerAdminRoutes(app, authenticate) {
     const db = readDB();
     const client = db.clients.find((c) => c.id === req.params.id);
     if (!client) return res.status(404).json({ error: 'Client not found' });
+
+    if (username !== undefined) {
+      const cleanUsername = String(username).trim().toLowerCase();
+      if (!isValidUsername(cleanUsername)) {
+        return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
+      }
+      if (cleanUsername !== client.username && isUsernameTaken(db, cleanUsername)) {
+        return res.status(409).json({ error: 'That username is already taken' });
+      }
+      client.username = cleanUsername;
+    }
 
     client.businessName = businessName;
     client.ownerName = ownerName;
