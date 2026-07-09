@@ -61,8 +61,12 @@ function authenticate(...roles) {
   };
 }
 
+// Changes on every deploy (mtime of the frontend bundle). Open SPA tabs
+// compare it against the version they loaded with and refresh themselves.
+const APP_VERSION = String(fs.statSync(path.join(__dirname, 'public', 'app.js')).mtimeMs);
+
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, dbBackend: db.getBackend() });
+  res.json({ ok: true, dbBackend: db.getBackend(), appVersion: APP_VERSION });
 });
 
 app.post('/api/login', (req, res) => {

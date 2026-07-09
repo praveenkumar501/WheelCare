@@ -2355,6 +2355,32 @@
     document.body.appendChild(overlay);
   }
 
+  // An SPA tab left open across a deploy keeps running old code forever.
+  // Remember the server's appVersion from first load, re-check whenever the
+  // tab regains focus (and every 5 min), and reload when it changes — unless
+  // a modal is open, where a reload would throw away what the user typed.
+  let loadedAppVersion = null;
+  async function checkAppVersion() {
+    try {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      if (!data.appVersion) return;
+      if (loadedAppVersion === null) { loadedAppVersion = data.appVersion; return; }
+      if (data.appVersion !== loadedAppVersion) {
+        if (document.querySelector('.modal-overlay')) {
+          toast('App updated — refresh when done to get the latest version', '');
+          return;
+        }
+        location.reload();
+      }
+    } catch (err) { /* offline or server restarting — try again next time */ }
+  }
+  checkAppVersion();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkAppVersion();
+  });
+  setInterval(checkAppVersion, 5 * 60 * 1000);
+
   const initialHash = parseHash();
   if (initialHash.path === 'login') {
     state.view = 'login';
