@@ -122,4 +122,4 @@ function nextId(db, key, prefix) {
   return `${prefix}${max + 1}`;
 }
 
-module.exports = { readDB, writeDB, nextId, DB_PATH, ready: () => ready };
+module.exports = { readDB, writeDB, nextId, DB_PATH, ready: () => ready, getBackend: () => backend };

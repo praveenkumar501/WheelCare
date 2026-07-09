@@ -50,6 +50,10 @@ function authenticate(...roles) {
   };
 }
 
+app.get('/api/health', (req, res) => {
+  res.json({ ok: true, dbBackend: db.getBackend() });
+});
+
 app.post('/api/login', (req, res) => {
   const { role, username, password } = req.body || {};
   if (!role || !username || !password) {
