@@ -10,6 +10,17 @@ const PORT = process.env.PORT || 3000;
 
 app.set('trust proxy', true);
 app.use(express.json({ limit: '12mb' }));
+
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    if (req.path.startsWith('/api/')) {
+      console.log(`${new Date().toISOString()} ${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+    }
+  });
+  next();
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // token -> { role, id, clientId }
@@ -122,6 +133,9 @@ app.get('*', (req, res) => {
 
 db.ready().then(() => {
   app.listen(PORT, () => {
-    console.log(`WheelCare server running on http://localhost:${PORT}`);
+    console.log(`WheelCare server running on http://localhost:${PORT} — db backend: ${db.getBackend()}`);
   });
+  setInterval(() => {
+    console.log(`${new Date().toISOString()} heartbeat — db backend: ${db.getBackend()}`);
+  }, 15 * 60 * 1000);
 });
