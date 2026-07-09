@@ -360,10 +360,9 @@
               pwdFieldHtml('Password', 'password', { id: 'login-password', required: true, autocomplete: 'current-password' }) +
               '<button type="submit" class="btn btn-primary btn-block">Log In</button>' +
             '</form>' +
-            '<div class="auth-links">' +
-              (state.loginRole === 'client' ? '<button class="link-btn" id="register-business-btn">Register your business</button>' : '<span></span>') +
-              '<button class="link-btn" id="forgot-password-btn">Forgot password?</button>' +
-            '</div>' +
+            (state.loginRole === 'client'
+              ? '<div class="auth-links"><button class="link-btn" id="register-business-btn">Register your business</button></div>'
+              : '') +
           '</div>' +
           '<p class="auth-footer-credit">Developed by Praveen Kumar Athyala</p>' +
         '</div>' +
@@ -397,36 +396,6 @@
 
     const registerBtn = document.getElementById('register-business-btn');
     if (registerBtn) registerBtn.addEventListener('click', openRegisterBusinessModal);
-    document.getElementById('forgot-password-btn').addEventListener('click', openForgotPasswordModal);
-  }
-
-  function openForgotPasswordModal() {
-    const role = state.loginRole;
-    const html =
-      '<form id="forgot-password-form">' +
-        '<div class="field"><label>Username</label><input name="username" required /></div>' +
-        '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
-        pwdFieldHtml('New Password', 'newPassword', { required: true, minlength: 6, title: 'At least 6 characters' }) +
-        '<button type="submit" class="btn btn-primary btn-block">Reset Password</button>' +
-      '</form>';
-    const overlay = openModal('Forgot Password', html, (ov) => {
-      ov.querySelector('#forgot-password-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const f = new FormData(e.target);
-        try {
-          await api('/forgot-password', {
-            method: 'POST',
-            body: JSON.stringify({
-              role, username: f.get('username'), phone: f.get('phone'), newPassword: f.get('newPassword'),
-            }),
-          });
-          toast('Password reset — you can log in now', 'success');
-          overlay.remove();
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
-    });
   }
 
   function renderSetPassword() {
@@ -487,10 +456,10 @@
           '<div class="field"><label>Phone</label><div class="phone-input-group"><span class="phone-prefix">+91</span><input name="phone" required pattern="[6-9][0-9]{9}" title="Enter a valid 10-digit mobile number" inputmode="numeric" placeholder="10-digit number" /></div></div>' +
           '<div class="field"><label>Area</label><input name="area" placeholder="Sunrise Residency" /></div>' +
         '</div>' +
-        '<div class="field"><label>Choose a Username (optional)</label><input name="username" id="reg-username" placeholder="e.g. praveenvehiclecare" pattern="[a-z0-9]{3,20}" title="3-20 lowercase letters/numbers, no spaces" />' +
+        '<div class="field"><label>Choose a Username</label><input name="username" id="reg-username" required placeholder="e.g. praveenvehiclecare" pattern="[a-z0-9]{3,20}" title="3-20 lowercase letters/numbers, no spaces" />' +
           '<div id="username-availability" style="font-size:11.5px;margin-top:5px;min-height:14px;"></div>' +
         '</div>' +
-        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">This is what you\'ll log in with. Leave blank and we\'ll generate one for you. Once approved, you\'ll get a WhatsApp/SMS link to set your password.</p>' +
+        '<p style="font-size:12px;color:var(--text-muted);margin:-4px 0 16px;">This is what you\'ll log in with. Once approved, you\'ll get a WhatsApp/SMS link to set your password.</p>' +
         '<button type="submit" class="btn btn-primary btn-block">Submit Request</button>' +
       '</form>';
     const overlay = openModal('Register Your Business', html, (ov) => {

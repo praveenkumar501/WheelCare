@@ -17,25 +17,22 @@ module.exports = function registerPublicRoutes(app) {
 
   app.post('/api/client-requests', (req, res) => {
     const { businessName, ownerName, phone, area, username } = req.body || {};
-    if (!businessName || !ownerName || !phone) {
-      return res.status(400).json({ error: 'businessName, ownerName and phone are required' });
+    if (!businessName || !ownerName || !phone || !username) {
+      return res.status(400).json({ error: 'businessName, ownerName, phone and username are required' });
     }
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'phone must be a 10-digit number' });
     }
 
     const db = readDB();
-    let cleanUsername = '';
-    if (username && String(username).trim()) {
-      cleanUsername = String(username).trim().toLowerCase();
-      if (!isValidUsername(cleanUsername)) {
-        return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
-      }
-      const taken = db.clients.some((c) => c.username === cleanUsername)
-        || db.clientRequests.some((r) => r.status === 'pending' && r.username === cleanUsername);
-      if (taken) {
-        return res.status(409).json({ error: 'That username is already taken' });
-      }
+    const cleanUsername = String(username).trim().toLowerCase();
+    if (!isValidUsername(cleanUsername)) {
+      return res.status(400).json({ error: 'Username must be 3-20 lowercase letters/numbers, no spaces' });
+    }
+    const taken = db.clients.some((c) => c.username === cleanUsername)
+      || db.clientRequests.some((r) => r.status === 'pending' && r.username === cleanUsername);
+    if (taken) {
+      return res.status(409).json({ error: 'That username is already taken' });
     }
 
     const request = {
@@ -51,37 +48,6 @@ module.exports = function registerPublicRoutes(app) {
     db.clientRequests.push(request);
     writeDB(db);
     res.status(201).json({ request });
-  });
-
-  // ---------- Forgot password (self-service, verified by username + phone) ----------
-  app.post('/api/forgot-password', (req, res) => {
-    const { role, username, phone, newPassword } = req.body || {};
-    if (!role || !username || !phone || !newPassword) {
-      return res.status(400).json({ error: 'role, username, phone and newPassword are required' });
-    }
-    if (!isValidPassword(newPassword)) {
-      return res.status(400).json({ error: `newPassword must be at least ${MIN_PASSWORD_LENGTH} characters` });
-    }
-
-    const db = readDB();
-    let account = null;
-    if (role === 'superadmin') {
-      if (db.superadmin.username === username && db.superadmin.phone === phone) account = db.superadmin;
-    } else if (role === 'client') {
-      account = db.clients.find((c) => c.username === username && c.phone === phone) || null;
-    } else if (role === 'customer') {
-      account = db.customers.find((c) => c.username === username && c.phone === phone) || null;
-    } else {
-      return res.status(400).json({ error: 'Invalid role' });
-    }
-
-    if (!account) {
-      return res.status(404).json({ error: 'No account found matching that username and phone number' });
-    }
-
-    account.password = hashPassword(newPassword);
-    writeDB(db);
-    res.json({ ok: true });
   });
 
   // ---------- Set password via WhatsApp/SMS link (new accounts + resets, client or customer) ----------
