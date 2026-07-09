@@ -2334,8 +2334,26 @@
       return;
     }
     const photo = e.target.closest('.complaint-photo');
-    if (photo && photo.src) window.open(photo.src, '_blank');
+    if (photo && photo.src) openPhotoLightbox(photo.src);
   });
+
+  // Browsers block opening data: URLs in a new tab (it shows a blank page),
+  // so photos are viewed in an in-app lightbox instead of window.open.
+  function openPhotoLightbox(src) {
+    const overlay = document.createElement('div');
+    overlay.className = 'photo-lightbox';
+    overlay.innerHTML =
+      '<button class="photo-lightbox-close" aria-label="Close">✕</button>' +
+      '<img src="' + src + '" alt="Photo" />';
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    overlay.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+  }
 
   const initialHash = parseHash();
   if (initialHash.path === 'login') {
