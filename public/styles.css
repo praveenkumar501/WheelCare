@@ -729,6 +729,12 @@ a { color: inherit; text-decoration: none; }
 .customer-card .cc-top > div:first-child { min-width: 0; flex: 1 1 140px; overflow-wrap: anywhere; }
 .customer-card .cc-name { font-weight: 700; font-size: 15.5px; }
 .customer-card .cc-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+
+.request-card .cc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.request-card .cc-top > .provider-info { min-width: 0; flex: 1 1 200px; align-items: flex-start; }
+.request-card .cc-top > .provider-info > div:last-child { min-width: 0; overflow-wrap: anywhere; }
+.request-card .cc-name { font-weight: 700; font-size: 15.5px; }
+.request-card .cc-meta { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
 .customer-card .cc-vehicles { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .cc-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .vehicle-row {

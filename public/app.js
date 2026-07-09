@@ -2120,12 +2120,22 @@
       (state.clientRequests.length === 0 ? '' :
         '<div class="section-header"><h3>Pending Requests<span class="count-badge">' + state.clientRequests.length + '</span></h3></div>' +
         '<div class="cards-grid">' + state.clientRequests.map((r) =>
-          '<div class="card"><div class="cc-top"><div><div class="cc-name">' + esc(r.businessName) + '</div>' +
-          '<div class="cc-meta">' + esc(r.ownerName) + ' · ' + esc(r.phone) + ' · ' + esc(r.area || '') + '</div></div></div>' +
-          '<div class="cc-vehicles" style="margin-top:12px; display:flex; gap:8px;">' +
-            '<button class="btn btn-primary btn-sm" data-approve-request="' + r.id + '" style="flex:1;">Approve</button>' +
-            '<button class="btn btn-outline btn-sm" data-reject-request="' + r.id + '" style="flex:1;">Reject</button>' +
-          '</div></div>'
+          '<div class="card request-card">' +
+            '<div class="cc-top">' +
+              '<div class="provider-info">' +
+                '<div class="provider-avatar">' + esc(initials(r.businessName)) + '</div>' +
+                '<div><div class="cc-name">' + esc(r.businessName) + '</div>' +
+                '<div class="cc-meta">👤 ' + esc(r.ownerName) + ' · 📞 ' + esc(r.phone) + '</div>' +
+                (r.area ? '<div class="cc-meta">📍 ' + esc(r.area) + '</div>' : '') +
+                '</div>' +
+              '</div>' +
+              '<span class="chip chip-amber">New</span>' +
+            '</div>' +
+            '<div style="display:flex; gap:8px; margin-top:14px;">' +
+              '<button class="btn btn-primary btn-sm" data-approve-request="' + r.id + '" style="flex:1;">✓ Approve</button>' +
+              '<button class="btn btn-outline btn-sm" data-reject-request="' + r.id + '" style="flex:1;">✕ Reject</button>' +
+            '</div>' +
+          '</div>'
         ).join('') + '</div>') +
       '<div class="section-header"><h3>Client Businesses<span class="count-badge">' + state.adminClients.length + '</span></h3>' +
         '<button class="btn btn-primary btn-sm" id="add-client-btn">+ Add Business</button>' +
