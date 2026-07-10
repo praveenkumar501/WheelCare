@@ -164,4 +164,50 @@ module.exports = function registerCustomerRoutes(app, authenticate) {
     writeDB(db);
     res.status(201).json({ booking });
   });
+
+  app.put('/api/customer/bookings/:id', authenticate('customer'), (req, res) => {
+    const { preferredDate, preferredTime, notes } = req.body || {};
+    if (!preferredDate) {
+      return res.status(400).json({ error: 'preferredDate is required' });
+    }
+    if (Number.isNaN(new Date(preferredDate).getTime())) {
+      return res.status(400).json({ error: 'preferredDate must be a valid date' });
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (new Date(preferredDate) < today) {
+      return res.status(400).json({ error: 'preferredDate cannot be in the past' });
+    }
+    if (preferredTime !== undefined && preferredTime !== '' && !/^([01]\d|2[0-3]):([0-5]\d)$/.test(preferredTime)) {
+      return res.status(400).json({ error: 'preferredTime must be in HH:MM format' });
+    }
+
+    const db = readDB();
+    const booking = (db.bookings || []).find((b) => b.id === req.params.id && b.customerId === req.session.id);
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.status !== 'pending') {
+      return res.status(409).json({ error: 'Only pending bookings can be changed. Contact your provider about this one.' });
+    }
+
+    const client = db.clients.find((c) => c.id === booking.clientId);
+    if (preferredTime && client && client.serviceStartTime && client.serviceEndTime) {
+      if (preferredTime < client.serviceStartTime || preferredTime >= client.serviceEndTime) {
+        return res.status(400).json({ error: `preferredTime must be between ${client.serviceStartTime} and ${client.serviceEndTime}` });
+      }
+    }
+    if (preferredDate !== booking.preferredDate) {
+      const dailyLimit = (client && client.dailyBookingLimit) || 100;
+      const bookedCount = db.bookings.filter(
+        (b) => b.id !== booking.id && b.clientId === booking.clientId && b.preferredDate === preferredDate && b.status !== 'declined'
+      ).length;
+      if (bookedCount >= dailyLimit) {
+        return res.status(409).json({ error: 'No slots available for ' + preferredDate + '. Please try another day.' });
+      }
+    }
+
+    booking.preferredDate = preferredDate;
+    booking.preferredTime = preferredTime || '';
+    if (notes !== undefined) booking.notes = String(notes || '').trim().slice(0, 300);
+    writeDB(db);
+    res.json({ booking });
+  });
 };

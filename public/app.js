@@ -1897,6 +1897,9 @@
         (opts.canRespond && b.status === 'accepted'
           ? '<button class="btn btn-outline btn-sm btn-block" style="margin-top:10px;" data-complete-booking="' + b.id + '">Mark Complete</button>'
           : '') +
+        (opts.canEdit && b.status === 'pending'
+          ? '<button class="btn btn-outline btn-sm btn-block" style="margin-top:10px;" data-edit-booking="' + b.id + '">✏️ Change Date / Time</button>'
+          : '') +
       '</div>'
     );
   }
@@ -1944,9 +1947,15 @@
         '<button class="btn btn-primary btn-sm" id="book-wash-btn">📅 Book a Wash</button>' +
       '</div>' +
       '<p style="font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;">Request a wash for a preferred date — your provider will confirm it.</p>' +
-      monthGroupedBookingsHtml(bookings, { showCustomer: false, canRespond: false });
+      monthGroupedBookingsHtml(bookings, { showCustomer: false, canRespond: false, canEdit: true });
 
     document.getElementById('book-wash-btn').addEventListener('click', openBookWashModal);
+    content.querySelectorAll('[data-edit-booking]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const booking = bookings.find((b) => b.id === btn.dataset.editBooking);
+        if (booking) openEditBookingModal(booking);
+      });
+    });
   }
 
   function openBookWashModal() {
@@ -1988,6 +1997,49 @@
             }),
           });
           toast('Booking requested', 'success');
+          overlay.remove();
+          renderCustomerBookings();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  function openEditBookingModal(booking) {
+    const d = state.data;
+    const today = new Date().toISOString().slice(0, 10);
+    const slots = d && d.client ? generateTimeSlots(d.client.serviceStartTime, d.client.serviceEndTime, 30) : [];
+    const dateValue = booking.preferredDate >= today ? booking.preferredDate : today;
+    const html =
+      businessHoursNoteHtml(d && d.client) +
+      '<form id="edit-booking-form">' +
+        '<div class="field"><label>Vehicle</label><input value="' + esc(booking.vehicleType) + ' · ' + esc(booking.vehicleNumber) + '" disabled /></div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label>Preferred Date</label><input type="date" name="preferredDate" required min="' + today + '" value="' + esc(dateValue) + '" /></div>' +
+          (slots.length
+            ? '<div class="field"><label>Preferred Time</label><select name="preferredTime" required>' +
+                slots.map((s) => '<option value="' + s + '"' + (s === booking.preferredTime ? ' selected' : '') + '>' + esc(formatTime12h(s)) + '</option>').join('') +
+              '</select></div>'
+            : '') +
+        '</div>' +
+        '<div class="field"><label>Notes (optional)</label><textarea name="notes" rows="2" placeholder="e.g. Please ring the bell">' + esc(booking.notes || '') + '</textarea></div>' +
+        '<button type="submit" class="btn btn-primary btn-block">Update Booking</button>' +
+      '</form>';
+    const overlay = openModal('Change Booking', html, (ov) => {
+      ov.querySelector('#edit-booking-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+          await api('/customer/bookings/' + booking.id, {
+            method: 'PUT',
+            body: JSON.stringify({
+              preferredDate: f.get('preferredDate'),
+              preferredTime: f.get('preferredTime') || '',
+              notes: f.get('notes'),
+            }),
+          });
+          toast('Booking updated', 'success');
           overlay.remove();
           renderCustomerBookings();
         } catch (err) {
