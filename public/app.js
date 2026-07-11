@@ -274,11 +274,19 @@
     '<div class="vehicle-tile bike-tile"><img src="/images/hero-bike-wash.jpg" alt="Motorcycle being washed" loading="lazy" /></div>' +
     '<div class="vehicle-tile car-tile"><img src="/images/hero-car-wash.jpg" alt="Car being washed" loading="lazy" /></div>';
 
-  const TRUST_BADGES = [
-    '✓ No setup fees', '✓ No messaging API costs', '✓ Live in under 5 minutes',
+  const HERO_STATS = [
+    { value: '₹0', label: 'Setup fees' },
+    { value: '5 min', label: 'To go live' },
+    { value: '1 tap', label: 'WhatsApp reminders' },
+  ];
+
+  const TICKER_ITEMS = [
+    'MONTHLY WASH SUBSCRIPTIONS', 'DUES TRACKED AUTOMATICALLY', 'ONE-TAP WHATSAPP REMINDERS',
+    'DOORSTEP BIKE & CAR CARE', 'READY TO RIDE — READY TO SHINE',
   ];
 
   function renderLanding() {
+    const tickerHtml = TICKER_ITEMS.map((t) => '<span class="ticker-item">' + esc(t) + '</span><span class="ticker-sep">✦</span>').join('');
     $app.innerHTML =
       '<div class="landing premium-bg">' +
         '<nav class="landing-nav">' +
@@ -287,17 +295,20 @@
         '</nav>' +
         '<section class="landing-hero">' +
           '<div class="landing-kicker">VEHICLE CARE SUBSCRIPTION PLATFORM</div>' +
-          '<h1 class="landing-headline">Run your <span class="grad-text">vehicle care</span> subscription business like a pro</h1>' +
-          '<p class="landing-sub">Track monthly dues, send WhatsApp reminders with one tap, and manage customers, staff and payments — all from one dashboard.</p>' +
+          '<h1 class="ktm-headline">Ready to ride.<span class="kh-orange">Ready to shine.</span></h1>' +
+          '<p class="landing-sub">Run your vehicle wash subscription business like a pro — track monthly dues, send WhatsApp reminders with one tap, and manage customers, staff and payments from one dashboard.</p>' +
           '<div class="landing-cta-row">' +
             '<button class="btn btn-primary" id="get-started-btn">Get Started Free</button>' +
             '<button class="btn btn-outline-light" id="hero-login-btn">I already have an account</button>' +
           '</div>' +
-          '<div class="trust-badge-row">' +
-            TRUST_BADGES.map((t) => '<span class="trust-badge">' + esc(t) + '</span>').join('') +
+          '<div class="hero-stat-row">' +
+            HERO_STATS.map((s) =>
+              '<div class="hero-stat"><div class="hs-value">' + esc(s.value) + '</div><div class="hs-label">' + esc(s.label) + '</div></div>'
+            ).join('') +
           '</div>' +
           '<div class="hero-stage"><div class="hero-illustration">' + HERO_ILLUSTRATION_HTML + '</div></div>' +
         '</section>' +
+        '<div class="ticker-strip"><div class="ticker-track">' + tickerHtml + tickerHtml + '</div></div>' +
         '<section class="landing-steps">' +
           '<div class="landing-kicker center">GET STARTED</div>' +
           '<h2 class="landing-section-title">How it works</h2>' +
